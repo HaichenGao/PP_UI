@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<UXML xmlns="UnityEngine.UIElements" xmlns:ui="UnityEditor.UIElements" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+<VisualElement class="root-container">
+<!-- Title or Header -->
+<Label text="Haptic Annotation Editor" class="header-label" />
+    <!-- Buttons or Controls Row -->
+    <VisualElement class="controls-row">
+        <Button text="Scan Scene" name="scanSceneButton" />
+        <Button text="Export" name="exportDataButton" />
+    </VisualElement>
+
+    <!-- GraphView Container -->
+    <VisualElement class="graph-container" name="graphViewContainer">
+        <!-- The GraphView will be added here via script -->
+    </VisualElement>
+</VisualElement>
+</UXML>

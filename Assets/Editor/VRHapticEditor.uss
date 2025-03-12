@@ -1,0 +1,22 @@
+.root-container {
+flex-direction: column;
+padding: 10px;
+}
+
+.header-label {
+unity-font-style: bold;
+font-size: 14px;
+margin-bottom: 10px;
+}
+
+.controls-row {
+flex-direction: row;
+justify-content: space-between;
+margin-bottom: 8px;
+}
+
+.graph-container {
+flex-grow: 1;
+border: 1px solid #333333;
+min-height: 400px;
+}
