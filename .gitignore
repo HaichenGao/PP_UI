@@ -1,4 +1,5 @@
 !Assets/
+
 Library/
 Logs/
 Temp/
@@ -6,3 +7,9 @@ UserSettings/
 .vs/
 ProjectSettings/
 Packages/
+Assets/Scenes/
+
+.DS_Store
+*.csproj
+*.sln
+*.meta
