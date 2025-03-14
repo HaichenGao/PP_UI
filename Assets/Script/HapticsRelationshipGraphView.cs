@@ -252,11 +252,8 @@ public class HapticNode : Node
         AssociatedObject = go;
         title = go.name;
 
-        // Output port (e.g., for a Direct Contact Object)
-        var initialOutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
-        initialOutputPort.portName = "Direct →";
-        outputContainer.Add(initialOutputPort);
-        _outputPorts.Add(initialOutputPort); // Track the initial port
+        // Create the initial direct port
+        AddDirectPort(); // This will add the first port to _outputPorts
 
         // Create the initial tool-mediated port with its text field
         AddToolMediatedPort();
@@ -400,24 +397,15 @@ public class HapticNode : Node
         // Handle direct port disconnection
         else if (port.direction == Direction.Output)
         {
-            // Find the port in our tracked list
-            int portIndex = _outputPorts.IndexOf(port);
+            Debug.Log($"Direct port disconnected: connected={port.connected}, connections={port.connections.Count()}");
 
-            Debug.Log($"Direct port disconnected: index={portIndex}, connected={port.connected}, connections={port.connections.Count()}");
-
-            // Only remove if it's not the first/original port
-            if (portIndex > 0)
+            // Only remove if it has no connections AND it's not the last port
+            if (port.connections.Count() == 0 && _outputPorts.Count > 1)
             {
-                // Check if the port has any remaining connections
-                bool hasConnections = port.connections.Count() > 0;
-
-                if (!hasConnections)
-                {
-                    Debug.Log($"Removing direct port at index {portIndex}");
-                    outputContainer.Remove(port);
-                    _outputPorts.Remove(port);
-                    RefreshPorts();
-                }
+                Debug.Log($"Removing direct port");
+                outputContainer.Remove(port);
+                _outputPorts.Remove(port);
+                RefreshPorts();
             }
         }
     }
