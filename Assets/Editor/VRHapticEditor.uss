@@ -4,7 +4,7 @@ padding: 10px;
 }
 
 .header-label {
-unity-font-style: bold;
+-unity-font-style: bold;
 font-size: 14px;
 margin-bottom: 10px;
 }
