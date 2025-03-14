@@ -109,29 +109,27 @@ public class HapticsRelationshipGraphView : GraphView
         // Handle element removals (nodes and edges)
         if (change.elementsToRemove != null)
         {
-            // First, prepare nodes for deletion to ensure edges are properly disconnected
             foreach (var element in change.elementsToRemove)
             {
                 if (element is HapticNode node)
                 {
-                    Debug.Log($"Preparing node for deletion: {node.title}");
-                    node.PrepareForDeletion();
-
-                    // Update our nodes list
-                    _nodes.Remove(node);
+                    // Existing node removal code...
                 }
                 else if (element is Edge edge)
                 {
-                    Debug.Log($"Removing edge: {edge.output.node.title} -> {edge.input.node.title}");
+                    Debug.Log($"Removing edge: {edge.output?.node?.title} -> {edge.input?.node?.title}");
 
-                    // Notify the input port's node about the disconnection
-                    if (edge.input.node is HapticNode inputNode)
+                    // Make sure to disconnect the edge from both ports
+                    edge.output?.Disconnect(edge);
+                    edge.input?.Disconnect(edge);
+
+                    // Notify the nodes about the disconnection
+                    if (edge.input?.node is HapticNode inputNode)
                     {
                         inputNode.OnPortDisconnected(edge.input);
                     }
 
-                    // Notify the output port's node about the disconnection
-                    if (edge.output.node is HapticNode outputNode)
+                    if (edge.output?.node is HapticNode outputNode)
                     {
                         outputNode.OnPortDisconnected(edge.output);
                     }
@@ -238,7 +236,7 @@ public class HapticNode : Node
     public bool DirectContact { get; set; }
     public float ExpectedWeight { get; set; }
 
-    private Port _outputPort;
+    private List<Port> _outputPorts = new List<Port>();
     private List<ToolMediatedPortData> _inputPorts = new List<ToolMediatedPortData>();
 
     // Class to hold port and its associated text field
@@ -255,9 +253,10 @@ public class HapticNode : Node
         title = go.name;
 
         // Output port (e.g., for a Direct Contact Object)
-        _outputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
-        _outputPort.portName = "Direct →";
-        outputContainer.Add(_outputPort);
+        var initialOutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
+        initialOutputPort.portName = "Direct →";
+        outputContainer.Add(initialOutputPort);
+        _outputPorts.Add(initialOutputPort); // Track the initial port
 
         // Create the initial tool-mediated port with its text field
         AddToolMediatedPort();
@@ -282,6 +281,22 @@ public class HapticNode : Node
             ExpectedWeight = evt.newValue;
         });
         mainContainer.Add(weightField);
+
+        RefreshExpandedState();
+        RefreshPorts();
+    }
+
+    public void AddDirectPort()
+    {
+        // Create a new direct port
+        var newOutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
+        newOutputPort.portName = "Direct →";
+
+        // Add to containers
+        outputContainer.Add(newOutputPort);
+        _outputPorts.Add(newOutputPort);
+
+        Debug.Log($"Added new direct port. Total ports: {_outputPorts.Count}");
 
         RefreshExpandedState();
         RefreshPorts();
@@ -385,14 +400,26 @@ public class HapticNode : Node
         // Handle direct port disconnection
         else if (port.direction == Direction.Output)
         {
-            // Only remove if it's not the first/original port and has no connections
-            if (outputContainer.IndexOf(port) > 0 && !port.connected)
+            // Find the port in our tracked list
+            int portIndex = _outputPorts.IndexOf(port);
+
+            Debug.Log($"Direct port disconnected: index={portIndex}, connected={port.connected}, connections={port.connections.Count()}");
+
+            // Only remove if it's not the first/original port
+            if (portIndex > 0)
             {
-                outputContainer.Remove(port);
-                RefreshPorts();
+                // Check if the port has any remaining connections
+                bool hasConnections = port.connections.Count() > 0;
+
+                if (!hasConnections)
+                {
+                    Debug.Log($"Removing direct port at index {portIndex}");
+                    outputContainer.Remove(port);
+                    _outputPorts.Remove(port);
+                    RefreshPorts();
+                }
             }
         }
-
     }
 
     public void PrepareForDeletion()
@@ -416,7 +443,7 @@ public class HapticNode : Node
         }
 
         // Disconnect all output ports
-        foreach (var port in outputContainer.Children().OfType<Port>())
+        foreach (var port in _outputPorts)
         {
             if (port.connected)
             {
@@ -429,17 +456,6 @@ public class HapticNode : Node
                 }
             }
         }
-    }
-
-    public void AddDirectPort()
-    {
-        // Always add a new direct port when requested
-        var newOutputPort = InstantiatePort(Orientation.Horizontal, Direction.Output, Port.Capacity.Multi, typeof(bool));
-        newOutputPort.portName = "Direct →";
-        outputContainer.Add(newOutputPort);
-
-        RefreshExpandedState();
-        RefreshPorts();
     }
 
     // Method to collect all tool-mediated annotations
