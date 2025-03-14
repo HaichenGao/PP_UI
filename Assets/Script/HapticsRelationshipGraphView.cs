@@ -109,11 +109,40 @@ public class HapticsRelationshipGraphView : GraphView
         // Handle element removals (nodes and edges)
         if (change.elementsToRemove != null)
         {
+            // Create a list to store additional elements that need to be removed
+            List<GraphElement> additionalElementsToRemove = new List<GraphElement>();
+
             foreach (var element in change.elementsToRemove)
             {
                 if (element is HapticNode node)
                 {
-                    // Existing node removal code...
+                    // Find all edges connected to this node
+                    var connectedEdges = edges.ToList().Where(edge =>
+                        edge.input.node == node || edge.output.node == node).ToList();
+
+                    // For each connected edge, notify the other node about the disconnection
+                    foreach (var edge in connectedEdges)
+                    {
+                        // If this node is the input node, notify the output node
+                        if (edge.input.node == node && edge.output.node is HapticNode outputNode)
+                        {
+                            outputNode.OnPortDisconnected(edge.output);
+                        }
+                        // If this node is the output node, notify the input node
+                        else if (edge.output.node == node && edge.input.node is HapticNode inputNode)
+                        {
+                            inputNode.OnPortDisconnected(edge.input);
+                        }
+                    }
+
+                    // Add connected edges to removal list
+                    additionalElementsToRemove.AddRange(connectedEdges);
+
+                    // Call PrepareForDeletion to disconnect all ports
+                    node.PrepareForDeletion();
+
+                    // Remove the node from our tracking list
+                    _nodes.Remove(node);
                 }
                 else if (element is Edge edge)
                 {
@@ -134,6 +163,12 @@ public class HapticsRelationshipGraphView : GraphView
                         outputNode.OnPortDisconnected(edge.output);
                     }
                 }
+            }
+
+            // Add the additional elements to the removal list
+            if (additionalElementsToRemove.Count > 0)
+            {
+                change.elementsToRemove.AddRange(additionalElementsToRemove);
             }
         }
 
@@ -400,20 +435,25 @@ public class HapticNode : Node
             Debug.Log($"Direct port disconnected: connected={port.connected}, connections={port.connections.Count()}");
 
             // Only remove if it has no connections AND it's not the last port
-            if (port.connections.Count() == 0 && _outputPorts.Count > 1)
+            if (_outputPorts.Count > 1)
             {
-                Debug.Log($"Removing direct port");
-                outputContainer.Remove(port);
-                _outputPorts.Remove(port);
-                RefreshPorts();
+                // Check if the port has any remaining connections
+                bool hasConnections = port.connections.Count() > 0;
+
+                if (!hasConnections)
+                {
+                    Debug.Log($"Removing direct port");
+                    outputContainer.Remove(port);
+                    _outputPorts.Remove(port);
+                    RefreshPorts();
+                }
             }
         }
     }
 
     public void PrepareForDeletion()
     {
-        // Disconnect all ports before node is deleted
-        // This ensures edges will be properly removed
+        Debug.Log($"Preparing node {title} for deletion");
 
         // Disconnect all input ports
         foreach (var portData in _inputPorts)
@@ -424,8 +464,20 @@ public class HapticNode : Node
                 var connections = portData.Port.connections.ToList();
                 foreach (var connection in connections)
                 {
+                    // Get the source node before disconnecting
+                    var sourceNode = connection.output.node as HapticNode;
+                    var sourcePort = connection.output;
+
+                    // Disconnect the connection
                     connection.output.Disconnect(connection);
                     connection.input.Disconnect(connection);
+
+                    // Notify the source node about the disconnection
+                    if (sourceNode != null)
+                    {
+                        // Explicitly call OnPortDisconnected on the source node
+                        sourceNode.OnPortDisconnected(sourcePort);
+                    }
                 }
             }
         }
@@ -439,8 +491,20 @@ public class HapticNode : Node
                 var connections = port.connections.ToList();
                 foreach (var connection in connections)
                 {
+                    // Get the target node before disconnecting
+                    var targetNode = connection.input.node as HapticNode;
+                    var targetPort = connection.input;
+
+                    // Disconnect the connection
                     connection.output.Disconnect(connection);
                     connection.input.Disconnect(connection);
+
+                    // Notify the target node about the disconnection
+                    if (targetNode != null)
+                    {
+                        // Explicitly call OnPortDisconnected on the target node
+                        targetNode.OnPortDisconnected(targetPort);
+                    }
                 }
             }
         }
