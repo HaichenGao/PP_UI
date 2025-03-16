@@ -3,6 +3,7 @@ using UnityEngine.UIElements;
 using UnityEditor.Experimental.GraphView;
 using System.Collections.Generic;
 using System.Linq;
+using UnityEditor;
 
 public class HapticsRelationshipGraphView : GraphView
 {
@@ -190,8 +191,8 @@ public class HapticsRelationshipGraphView : GraphView
             data.nodeAnnotations.Add(new HapticObjectRecord
             {
                 objectName = hNode.AssociatedObject.name,
-                directContact = hNode.DirectContact,
-                expectedWeight = hNode.ExpectedWeight
+                //directContact = hNode.DirectContact,
+                //expectedWeight = hNode.ExpectedWeight
                 // Add other fields as needed
             });
 
@@ -253,9 +254,6 @@ public class HapticAnnotationData
 public class HapticObjectRecord
 {
     public string objectName;
-    public bool directContact;
-    public float expectedWeight;
-    // Extend as necessary to store additional haptic parameters
 }
 
 // Record for each connection
@@ -271,11 +269,11 @@ public class HapticConnectionRecord
 public class HapticNode : Node
 {
     public GameObject AssociatedObject { get; private set; }
-    public bool DirectContact { get; set; }
-    public float ExpectedWeight { get; set; }
 
     private List<Port> _outputPorts = new List<Port>();
     private List<ToolMediatedPortData> _inputPorts = new List<ToolMediatedPortData>();
+    private Image _previewImage;
+    private Editor _gameObjectEditor;
 
     // Class to hold port and its associated text field
     private class ToolMediatedPortData
@@ -290,35 +288,69 @@ public class HapticNode : Node
         AssociatedObject = go;
         title = go.name;
 
+        // Create a preview container
+        var previewContainer = new VisualElement();
+        previewContainer.style.width = 200;
+        previewContainer.style.height = 150;
+        previewContainer.style.marginTop = 5;
+        previewContainer.style.marginBottom = 5;
+        previewContainer.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
+
+        // Create an image element for the preview
+        _previewImage = new Image();
+        _previewImage.scaleMode = ScaleMode.ScaleToFit;
+        _previewImage.style.width = 200;
+        _previewImage.style.height = 150;
+
+        previewContainer.Add(_previewImage);
+
+        // Add the preview to the node
+        mainContainer.Add(previewContainer);
+
         // Create the initial direct port
-        AddDirectPort(); // This will add the first port to _outputPorts
+        AddDirectPort();
 
         // Create the initial tool-mediated port with its text field
         AddToolMediatedPort();
 
-        // Example UI elements on the node
-        var directContactToggle = new Toggle("Direct Contact")
-        {
-            value = false
-        };
-        directContactToggle.RegisterValueChangedCallback(evt =>
-        {
-            DirectContact = evt.newValue;
-        });
-        mainContainer.Add(directContactToggle);
+        // Create the editor for the GameObject preview
+        _gameObjectEditor = Editor.CreateEditor(go);
 
-        var weightField = new FloatField("Expected Weight (kg)")
-        {
-            value = 1.0f
-        };
-        weightField.RegisterValueChangedCallback(evt =>
-        {
-            ExpectedWeight = evt.newValue;
-        });
-        mainContainer.Add(weightField);
+        // Schedule a repaint to ensure the preview is updated
+        schedule.Execute(() => UpdatePreview()).Every(100);
 
         RefreshExpandedState();
         RefreshPorts();
+    }
+
+    private void UpdatePreview()
+    {
+        if (_gameObjectEditor != null && AssociatedObject != null)
+        {
+            // Get the preview texture from the editor
+            Texture2D previewTexture = _gameObjectEditor.RenderStaticPreview(
+                AssetDatabase.GetAssetPath(AssociatedObject),
+                null,
+                200,
+                150);
+
+            if (previewTexture == null)
+            {
+                // If static preview fails, try to get the preview from the editor's icon
+                previewTexture = AssetPreview.GetAssetPreview(AssociatedObject);
+
+                // If that also fails, try to get a thumbnail
+                if (previewTexture == null)
+                {
+                    previewTexture = AssetPreview.GetMiniThumbnail(AssociatedObject);
+                }
+            }
+
+            if (previewTexture != null)
+            {
+                _previewImage.image = previewTexture;
+            }
+        }
     }
 
     public void AddDirectPort()
