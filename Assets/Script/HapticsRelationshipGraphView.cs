@@ -269,11 +269,12 @@ public class HapticConnectionRecord
 public class HapticNode : Node
 {
     public GameObject AssociatedObject { get; private set; }
-
+    
     private List<Port> _outputPorts = new List<Port>();
     private List<ToolMediatedPortData> _inputPorts = new List<ToolMediatedPortData>();
-    private Image _previewImage;
+    private IMGUIContainer _previewContainer;
     private Editor _gameObjectEditor;
+    private bool _needsEditorUpdate = true;
 
     // Class to hold port and its associated text field
     private class ToolMediatedPortData
@@ -287,69 +288,79 @@ public class HapticNode : Node
     {
         AssociatedObject = go;
         title = go.name;
-
-        // Create a preview container
-        var previewContainer = new VisualElement();
-        previewContainer.style.width = 200;
-        previewContainer.style.height = 150;
-        previewContainer.style.marginTop = 5;
-        previewContainer.style.marginBottom = 5;
-        previewContainer.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f);
-
-        // Create an image element for the preview
-        _previewImage = new Image();
-        _previewImage.scaleMode = ScaleMode.ScaleToFit;
-        _previewImage.style.width = 200;
-        _previewImage.style.height = 150;
-
-        previewContainer.Add(_previewImage);
-
+        
+        // Create a preview container using IMGUI
+        _previewContainer = new IMGUIContainer(() => {
+            // Check if we need to update the editor
+            if (_needsEditorUpdate || _gameObjectEditor == null)
+            {
+                if (_gameObjectEditor != null)
+                {
+                    Object.DestroyImmediate(_gameObjectEditor);
+                }
+                
+                if (AssociatedObject != null)
+                {
+                    _gameObjectEditor = Editor.CreateEditor(AssociatedObject);
+                }
+                
+                _needsEditorUpdate = false;
+            }
+            
+            // Draw the preview
+            if (AssociatedObject != null && _gameObjectEditor != null)
+            {
+                // Calculate the preview rect
+                Rect previewRect = GUILayoutUtility.GetRect(200, 150);
+                
+                // Draw the preview
+                _gameObjectEditor.OnInteractivePreviewGUI(previewRect, GUIStyle.none);
+            }
+        });
+        
+        _previewContainer.style.width = 200;
+        _previewContainer.style.height = 150;
+        _previewContainer.style.marginTop = 5;
+        _previewContainer.style.marginBottom = 5;
+        
         // Add the preview to the node
-        mainContainer.Add(previewContainer);
-
+        mainContainer.Add(_previewContainer);
+        
         // Create the initial direct port
         AddDirectPort();
 
         // Create the initial tool-mediated port with its text field
         AddToolMediatedPort();
-
-        // Create the editor for the GameObject preview
-        _gameObjectEditor = Editor.CreateEditor(go);
-
-        // Schedule a repaint to ensure the preview is updated
-        schedule.Execute(() => UpdatePreview()).Every(100);
+        
+        // Register for scene changes to update the preview
+        EditorApplication.update += OnEditorUpdate;
+        
+        // Register for cleanup when the node is removed
+        RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
 
         RefreshExpandedState();
         RefreshPorts();
     }
 
-    private void UpdatePreview()
+    private void OnDetachFromPanel(DetachFromPanelEvent evt)
     {
-        if (_gameObjectEditor != null && AssociatedObject != null)
+        // Clean up resources
+        EditorApplication.update -= OnEditorUpdate;
+        
+        if (_gameObjectEditor != null)
         {
-            // Get the preview texture from the editor
-            Texture2D previewTexture = _gameObjectEditor.RenderStaticPreview(
-                AssetDatabase.GetAssetPath(AssociatedObject),
-                null,
-                200,
-                150);
+            Object.DestroyImmediate(_gameObjectEditor);
+            _gameObjectEditor = null;
+        }
+    }
 
-            if (previewTexture == null)
-            {
-                // If static preview fails, try to get the preview from the editor's icon
-                previewTexture = AssetPreview.GetAssetPreview(AssociatedObject);
-
-                // If that also fails, try to get a thumbnail
-                if (previewTexture == null)
-                {
-                    previewTexture = AssetPreview.GetMiniThumbnail(AssociatedObject);
-                }
-            }
-
-            if (previewTexture != null)
-            {
-                _previewImage.image = previewTexture;
-            }
+    private void OnEditorUpdate()
+    {
+        // Mark that we need to update the editor on the next IMGUI pass
+        if (AssociatedObject != null)
+        {
+            // Force a repaint to update the preview
+            _previewContainer.MarkDirtyRepaint();
         }
     }
 
