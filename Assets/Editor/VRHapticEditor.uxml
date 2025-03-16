@@ -1,11 +1,12 @@
-<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xmlns="UnityEngine.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" editor-extension-mode="False">
+<ui:UXML xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" xmlns="UnityEngine.UIElements" xsi="http://www.w3.org/2001/XMLSchema-instance" editor-extension-mode="True">
     <Style src="project://database/Assets/Editor/VRHapticEditor.uss?fileID=7433441132597879392&amp;guid=e670cc8ee69434c4f86524d4dd17a73c&amp;type=3#VRHapticEditor" />
-    <ui:VisualElement class="root-container">
-        <ui:Label text="Haptic Annotation Editor" class="header-label" style="-unity-font-style: bold;" />
-        <ui:VisualElement class="controls-row" style="height: 25px; width: 1037px;">
-            <ui:Button text="Scan Scene" name="scanSceneButton" style="height: 28px; -unity-text-align: middle-center; white-space: nowrap; text-overflow: clip; align-self: center; -unity-font-style: bold;" />
-            <ui:Button text="Export" name="exportDataButton" style="height: 28px; width: auto; flex-wrap: nowrap; align-self: center; align-items: stretch; -unity-font-style: bold;" />
+    <ui:VisualElement name="root" class="root-container">
+        <ui:VisualElement name="toolbar" class="toolbar">
+            <ui:Label text="Haptic Annotation Editor" class="header-label" />
+            <ui:VisualElement class="toolbar-spacer" />
+            <ui:Button text="Scan Scene" name="scanSceneButton" class="toolbar-button" />
+            <ui:Button text="Export" name="exportDataButton" class="toolbar-button" />
         </ui:VisualElement>
-        <ui:VisualElement name="graphViewContainer" class="graph-container" style="height: 578px; width: 1035px;" />
+        <ui:VisualElement name="graphViewContainer" class="graph-container" />
     </ui:VisualElement>
 </ui:UXML>

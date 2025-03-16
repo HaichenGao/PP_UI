@@ -7,7 +7,6 @@ using System;
 
 public class HapticsAnnotationWindow : EditorWindow
 {
-    private VisualElement _rootVisual;
     private HapticsRelationshipGraphView _graphView;
 
     [MenuItem("HapticsAnnotationWindow/Open _%#T")]
@@ -21,7 +20,7 @@ public class HapticsAnnotationWindow : EditorWindow
     private void OnEnable()
     {
         // Load the UXML and USS
-        var uxmlPath = "Assets/Editor/VRHapticEditor.uxml"; 
+        var uxmlPath = "Assets/Editor/VRHapticEditor.uxml";
         var uxmlAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(uxmlPath);
 
         if (uxmlAsset == null)
@@ -30,43 +29,37 @@ public class HapticsAnnotationWindow : EditorWindow
             return;
         }
 
-        var ussPath = "Assets/Editor/VRHapticEditor.uss"; 
+        var ussPath = "Assets/Editor/VRHapticEditor.uss";
         var styleSheet = AssetDatabase.LoadAssetAtPath<StyleSheet>(ussPath);
 
-        // Instantiate the main layout
-        _rootVisual = new VisualElement();
-        VisualElement clone = uxmlAsset.Instantiate();
-        _rootVisual.Add(clone);
+        // Set the rootVisualElement directly
+        rootVisualElement.Clear();
+        uxmlAsset.CloneTree(rootVisualElement);
 
         // Apply styling
         if (styleSheet != null)
         {
-            _rootVisual.styleSheets.Add(styleSheet);
+            rootVisualElement.styleSheets.Add(styleSheet);
         }
 
-        // Set the rootVisualElement to our layout
-        rootVisualElement.Add(_rootVisual);
-
-        // Grab UI elements
-        var scanButton = _rootVisual.Q<Button>("scanSceneButton");
-        var exportButton = _rootVisual.Q<Button>("exportDataButton");
-        var graphContainer = _rootVisual.Q<VisualElement>("graphViewContainer");
-
-        // Create a new graph view and add it to the container
-        _graphView = new HapticsRelationshipGraphView
-        {
-            name = "HapticsGraphView"
-        };
-        _graphView.StretchToParentSize();
+        // Set up the graph view
+        var graphContainer = rootVisualElement.Q<VisualElement>("graphViewContainer");
+        _graphView = new HapticsRelationshipGraphView();
+        _graphView.style.flexGrow = 1;
         graphContainer.Add(_graphView);
 
-        // Hook up button events
+        // Set up button handlers
+        var scanButton = rootVisualElement.Q<Button>("scanSceneButton");
+        var exportButton = rootVisualElement.Q<Button>("exportDataButton");
+
         scanButton.clicked += OnScanSceneClicked;
         exportButton.clicked += OnExportClicked;
 
+        // Set up drag and drop
         _graphView.RegisterCallback<DragUpdatedEvent>(OnDragUpdated);
         _graphView.RegisterCallback<DragPerformEvent>(OnDragPerform);
     }
+
 
     private void OnDisable()
     {

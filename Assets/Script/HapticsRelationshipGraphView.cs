@@ -18,10 +18,13 @@ public class HapticsRelationshipGraphView : GraphView
         this.AddManipulator(new SelectionDragger());
         this.AddManipulator(new RectangleSelector());
 
-        // Optional background grid
+        // Create and add the grid background
         var grid = new GridBackground();
         Insert(0, grid);
         grid.StretchToParentSize();
+
+        // Style the grid to match Script Graph
+        grid.AddToClassList("grid-background");
 
         // Register for graph changes to handle connections
         graphViewChanged = OnGraphViewChanged;
