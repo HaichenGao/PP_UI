@@ -92,3 +92,33 @@
     color: rgb(200, 200, 200);
     margin-top: 11px;
 }
+
+.inspector-container {
+    width: 250px;
+    background-color: #383838;
+    border-left-width: 1px;
+    border-left-color: #222222;
+    display: flex;
+    flex-direction: column;
+}
+
+.inspector-content {
+    padding: 15px;
+    flex-grow: 1;
+}
+
+.inspector-field {
+    margin-bottom: 15px;
+}
+
+.inspector-field-label {
+    margin-bottom: 5px;
+    font-size: 12px;
+    -unity-font-style: bold;
+}
+
+.inspector-section-title {
+    font-size: 13px;
+    -unity-font-style: bold;
+    margin-bottom: 10px;
+}

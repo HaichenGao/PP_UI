@@ -7,6 +7,11 @@ using UnityEditor;
 
 public class HapticsRelationshipGraphView : GraphView
 {
+    public void RegisterCallback<T>(EventCallback<T> callback) where T : EventBase<T>, new()
+    {
+        base.RegisterCallback(callback);
+    }
+
     private readonly List<HapticNode> _nodes = new List<HapticNode>();
 
     public HapticsRelationshipGraphView()
@@ -246,6 +251,8 @@ public class HapticsRelationshipGraphView : GraphView
 [System.Serializable]
 public class HapticAnnotationData
 {
+    public string title;
+    public string summary;
     public List<HapticObjectRecord> nodeAnnotations;
     public List<HapticConnectionRecord> relationshipAnnotations;
 }

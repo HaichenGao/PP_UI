@@ -4,9 +4,18 @@
         <ui:VisualElement name="toolbar" class="toolbar">
             <ui:Label text="Haptic Annotation Editor" class="header-label" />
             <ui:VisualElement class="toolbar-spacer" />
+            <ui:Button text="Inspector" name="inspectorToggleButton" class="toolbar-button" />
             <ui:Button text="Scan Scene" name="scanSceneButton" class="toolbar-button" />
             <ui:Button text="Export" name="exportDataButton" class="toolbar-button" />
         </ui:VisualElement>
-        <ui:VisualElement name="graphViewContainer" class="graph-container" />
+        <ui:VisualElement name="mainContent" style="flex-direction: row; flex-grow: 1;">
+            <ui:VisualElement name="graphViewContainer" class="graph-container" />
+            <ui:VisualElement name="inspectorContainer" class="inspector-container">
+                <!-- No header label here -->
+                <ui:VisualElement name="inspectorContent" class="inspector-content">
+                    <!-- This will be populated dynamically -->
+                </ui:VisualElement>
+            </ui:VisualElement>
+        </ui:VisualElement>
     </ui:VisualElement>
 </ui:UXML>
