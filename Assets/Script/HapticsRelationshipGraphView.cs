@@ -276,6 +276,8 @@ public class HapticNode : Node
     private Editor _gameObjectEditor;
     private bool _needsEditorUpdate = true;
 
+    public int EngagementLevel { get; private set; } = 1; // Default to Medium Engagement (index 1)
+
     // Class to hold port and its associated text field
     private class ToolMediatedPortData
     {
@@ -288,7 +290,11 @@ public class HapticNode : Node
     {
         AssociatedObject = go;
         title = go.name;
-        
+
+        // Create a container for the preview and radio buttons
+        var previewAndControlsContainer = new VisualElement();
+        previewAndControlsContainer.AddToClassList("preview-controls-container");
+
         // Create a preview container using IMGUI
         _previewContainer = new IMGUIContainer(() => {
             // Check if we need to update the editor
@@ -298,43 +304,65 @@ public class HapticNode : Node
                 {
                     Object.DestroyImmediate(_gameObjectEditor);
                 }
-                
+
                 if (AssociatedObject != null)
                 {
                     _gameObjectEditor = Editor.CreateEditor(AssociatedObject);
                 }
-                
+
                 _needsEditorUpdate = false;
             }
-            
+
             // Draw the preview
             if (AssociatedObject != null && _gameObjectEditor != null)
             {
                 // Calculate the preview rect
-                Rect previewRect = GUILayoutUtility.GetRect(200, 150);
-                
+                Rect previewRect = GUILayoutUtility.GetRect(150, 150);
+
                 // Draw the preview
                 _gameObjectEditor.OnInteractivePreviewGUI(previewRect, GUIStyle.none);
             }
         });
-        
-        _previewContainer.style.width = 200;
-        _previewContainer.style.height = 150;
-        _previewContainer.style.marginTop = 5;
-        _previewContainer.style.marginBottom = 5;
-        
-        // Add the preview to the node
-        mainContainer.Add(_previewContainer);
-        
+
+        _previewContainer.AddToClassList("preview-container");
+
+        // Add the preview to the container
+        previewAndControlsContainer.Add(_previewContainer);
+
+        // Create the radio button group container
+        var radioGroupContainer = new VisualElement();
+        radioGroupContainer.AddToClassList("radio-group-container");
+
+        // Add a title for the radio group
+        var radioGroupTitle = new Label("Levels of Participation");
+        radioGroupTitle.AddToClassList("radio-group-title");
+        radioGroupContainer.Add(radioGroupTitle);
+
+        // Create the radio buttons
+        var highEngagementRadio = CreateRadioButton("High Engagement", 2, EngagementLevel == 2);
+        var mediumEngagementRadio = CreateRadioButton("Medium Engagement", 1, EngagementLevel == 1);
+        var lowEngagementRadio = CreateRadioButton("Low Engagement", 0, EngagementLevel == 0);
+
+        // Add the radio buttons to the container
+        radioGroupContainer.Add(highEngagementRadio);
+        radioGroupContainer.Add(mediumEngagementRadio);
+        radioGroupContainer.Add(lowEngagementRadio);
+
+        // Add the radio group to the container
+        previewAndControlsContainer.Add(radioGroupContainer);
+
+        // Add the container to the node
+        mainContainer.Add(previewAndControlsContainer);
+
         // Create the initial direct port
         AddDirectPort();
 
         // Create the initial tool-mediated port with its text field
         AddToolMediatedPort();
-        
+
         // Register for scene changes to update the preview
         EditorApplication.update += OnEditorUpdate;
-        
+
         // Register for cleanup when the node is removed
         RegisterCallback<DetachFromPanelEvent>(OnDetachFromPanel);
 
@@ -342,15 +370,77 @@ public class HapticNode : Node
         RefreshPorts();
     }
 
+    private VisualElement CreateRadioButton(string label, int value, bool isSelected)
+    {
+        var container = new VisualElement();
+        container.AddToClassList("radio-button-container");
+
+        var radioButton = new Toggle();
+        radioButton.value = isSelected;
+        radioButton.AddToClassList("radio-button");
+
+        var radioLabel = new Label(label);
+        radioLabel.AddToClassList("radio-label");
+
+        container.Add(radioButton);
+        container.Add(radioLabel);
+
+        // Add click handler
+        radioButton.RegisterValueChangedCallback(evt => {
+            if (evt.newValue)
+            {
+                // Deselect all other radio buttons in the group
+                VisualElement parent = container.parent;
+                if (parent != null)
+                {
+                    var allRadioButtons = parent.Query<Toggle>().ToList();
+                    foreach (var rb in allRadioButtons)
+                    {
+                        if (rb != radioButton)
+                        {
+                            rb.SetValueWithoutNotify(false);
+                        }
+                    }
+                }
+
+                // Set the engagement level
+                EngagementLevel = value;
+            }
+            else
+            {
+                // Don't allow deselecting without selecting another option
+                radioButton.SetValueWithoutNotify(true);
+            }
+        });
+
+        return container;
+    }
+
     private void OnDetachFromPanel(DetachFromPanelEvent evt)
     {
         // Clean up resources
         EditorApplication.update -= OnEditorUpdate;
-        
+
+        // Use a safer approach to clean up the editor
         if (_gameObjectEditor != null)
         {
-            Object.DestroyImmediate(_gameObjectEditor);
-            _gameObjectEditor = null;
+            try
+            {
+                // Check if the editor is still valid before destroying it
+                if (_gameObjectEditor.target != null)
+                {
+                    Object.DestroyImmediate(_gameObjectEditor);
+                }
+            }
+            catch (System.Exception e)
+            {
+                // Log the error but don't let it crash the application
+                Debug.LogWarning($"Error cleaning up editor: {e.Message}");
+            }
+            finally
+            {
+                _gameObjectEditor = null;
+            }
         }
     }
 
@@ -378,6 +468,7 @@ public class HapticNode : Node
 
         RefreshExpandedState();
         RefreshPorts();
+
     }
 
     private void AddToolMediatedPort()
@@ -389,7 +480,7 @@ public class HapticNode : Node
 
         // Create the port
         var inputPort = InstantiatePort(Orientation.Horizontal, Direction.Input, Port.Capacity.Single, typeof(bool));
-        inputPort.portName = "← Tool-Mediated";
+        inputPort.portName = "→ Mediated";
 
         // Create the text field (disabled by default) without a label
         var textField = new TextField();
