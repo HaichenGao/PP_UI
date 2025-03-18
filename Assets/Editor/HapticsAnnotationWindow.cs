@@ -19,6 +19,11 @@ public class HapticsAnnotationWindow : EditorWindow
     private string _graphTitle = "Haptic Annotation";
     private string _graphSummary = "Describe the haptic relationships in this scene.";
 
+    // Add these fields to HapticsAnnotationWindow.cs
+    private List<HapticNode> _orderedHighEngagementNodes = new List<HapticNode>();
+    private List<HapticNode> _orderedMediumEngagementNodes = new List<HapticNode>();
+    private List<HapticNode> _orderedLowEngagementNodes = new List<HapticNode>();
+
     [MenuItem("HapticsAnnotationWindow/Open _%#T")]
     public static void ShowWindow()
     {
@@ -29,6 +34,11 @@ public class HapticsAnnotationWindow : EditorWindow
 
     private void OnEnable()
     {
+        // Initialize ordered lists
+        _orderedHighEngagementNodes = new List<HapticNode>();
+        _orderedMediumEngagementNodes = new List<HapticNode>();
+        _orderedLowEngagementNodes = new List<HapticNode>();
+
         // Load the UXML and USS
         var uxmlPath = "Assets/Editor/VRHapticEditor.uxml";
         var uxmlAsset = AssetDatabase.LoadAssetAtPath<VisualTreeAsset>(uxmlPath);
@@ -238,20 +248,41 @@ public class HapticsAnnotationWindow : EditorWindow
         var mediumEngagementNodes = allNodes.Where(n => n.EngagementLevel == 1).ToList();
         var lowEngagementNodes = allNodes.Where(n => n.EngagementLevel == 0).ToList();
 
+        // Update our ordered lists, keeping existing order for nodes that are still present
+        UpdateOrderedList(_orderedHighEngagementNodes, highEngagementNodes);
+        UpdateOrderedList(_orderedMediumEngagementNodes, mediumEngagementNodes);
+        UpdateOrderedList(_orderedLowEngagementNodes, lowEngagementNodes);
+
         // Create a container for all lists
         var listsContainer = new VisualElement();
         listsContainer.style.marginTop = 20;
 
         // Add High Engagement list
-        AddReorderableList(listsContainer, "High Engagement", highEngagementNodes);
+        AddReorderableList(listsContainer, "High Engagement", _orderedHighEngagementNodes);
 
         // Add Medium Engagement list
-        AddReorderableList(listsContainer, "Medium Engagement", mediumEngagementNodes);
+        AddReorderableList(listsContainer, "Medium Engagement", _orderedMediumEngagementNodes);
 
         // Add Low Engagement list
-        AddReorderableList(listsContainer, "Low Engagement", lowEngagementNodes);
+        AddReorderableList(listsContainer, "Low Engagement", _orderedLowEngagementNodes);
 
         _inspectorContent.Add(listsContainer);
+    }
+
+    // Helper method to update ordered lists while preserving existing order
+    private void UpdateOrderedList(List<HapticNode> orderedList, List<HapticNode> currentNodes)
+    {
+        // Remove nodes that are no longer in the current list
+        orderedList.RemoveAll(n => !currentNodes.Contains(n));
+
+        // Add any new nodes that aren't already in the ordered list
+        foreach (var node in currentNodes)
+        {
+            if (!orderedList.Contains(node))
+            {
+                orderedList.Add(node);
+            }
+        }
     }
 
     private void AddReorderableList(VisualElement container, string title, List<HapticNode> nodes)
@@ -329,6 +360,7 @@ public class HapticsAnnotationWindow : EditorWindow
         // Store original data for drag operation
         Vector2 startPosition = Vector2.zero;
         VisualElement placeholder = null;
+        HapticNode draggedNode = itemContainer.userData as HapticNode;
 
         // Make the item draggable
         itemContainer.RegisterCallback<MouseDownEvent>(evt => {
@@ -436,8 +468,58 @@ public class HapticsAnnotationWindow : EditorWindow
                     parent.Add(itemContainer);
                 else
                     parent.Insert(placeholderIndex, itemContainer);
+
+                // Update the ordered lists based on the new order
+                UpdateOrderedListsFromUI();
             }
         });
+    }
+
+    // Method to update our ordered lists based on the current UI order
+    private void UpdateOrderedListsFromUI()
+    {
+        // Find all ScrollView containers in the inspector
+        var scrollContainers = _inspectorContent.Query<ScrollView>().ToList();
+
+        if (scrollContainers.Count >= 3)
+        {
+            // Clear our ordered lists
+            _orderedHighEngagementNodes.Clear();
+            _orderedMediumEngagementNodes.Clear();
+            _orderedLowEngagementNodes.Clear();
+
+            // Get the nodes in each container in their current order
+            var highEngagementContainer = scrollContainers[0];
+            var mediumEngagementContainer = scrollContainers[1];
+            var lowEngagementContainer = scrollContainers[2];
+
+            // Update high engagement nodes
+            foreach (var child in highEngagementContainer.Children())
+            {
+                if (child.userData is HapticNode node)
+                {
+                    _orderedHighEngagementNodes.Add(node);
+                }
+            }
+
+            // Update medium engagement nodes
+            foreach (var child in mediumEngagementContainer.Children())
+            {
+                if (child.userData is HapticNode node)
+                {
+                    _orderedMediumEngagementNodes.Add(node);
+                }
+            }
+
+            // Update low engagement nodes
+            foreach (var child in lowEngagementContainer.Children())
+            {
+                if (child.userData is HapticNode node)
+                {
+                    _orderedLowEngagementNodes.Add(node);
+                }
+            }
+        }
     }
 
     private void ToggleInspector()
