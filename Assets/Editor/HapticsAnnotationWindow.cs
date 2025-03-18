@@ -185,7 +185,7 @@ public class HapticsAnnotationWindow : EditorWindow
                 _graphTitle = evt.newValue;
             });
 
-            var summaryLabel = new Label("Summary");
+            var summaryLabel = new Label("Description");
             summaryLabel.AddToClassList("inspector-field-label");
 
             var summaryField = new TextField();
