@@ -280,6 +280,7 @@ public class HapticsAnnotationWindow : EditorWindow
         // Create the label for the node name
         var nodeLabel = new Label(node.title);
         nodeLabel.AddToClassList("node-label");
+        nodeLabel.tooltip = node.title; // Add tooltip for long names
 
         // Add elements to the item container
         itemContainer.Add(equalsSign);
@@ -303,26 +304,87 @@ public class HapticsAnnotationWindow : EditorWindow
 
     private void SetupDragAndDrop(VisualElement itemContainer)
     {
+        // Store original data for drag operation
+        Vector2 startPosition = Vector2.zero;
+        VisualElement placeholder = null;
+
         // Make the item draggable
         itemContainer.RegisterCallback<MouseDownEvent>(evt => {
             // Start drag operation
             itemContainer.CaptureMouse();
             itemContainer.AddToClassList("dragging");
 
-            // Store the original position and prevent selection during drag
-            itemContainer.userData = new Vector2(evt.mousePosition.x, evt.mousePosition.y);
+            // Store the original position
+            startPosition = evt.mousePosition;
+
+            // Create a placeholder element with the same size as the dragged item
+            placeholder = new VisualElement();
+            placeholder.AddToClassList("reorderable-list-placeholder");
+            placeholder.style.height = itemContainer.layout.height;
+
+            // Insert the placeholder at the same position as the dragged item
+            var parent = itemContainer.parent;
+            int index = parent.IndexOf(itemContainer);
+            parent.Insert(index, placeholder);
+
+            // Make the dragged item absolute positioned
+            itemContainer.style.position = Position.Absolute;
+
             evt.StopPropagation();
         });
 
         itemContainer.RegisterCallback<MouseMoveEvent>(evt => {
             if (itemContainer.HasMouseCapture())
             {
-                // Move the item
-                var originalPos = (Vector2)itemContainer.userData;
-                var delta = new Vector2(evt.mousePosition.x - originalPos.x, evt.mousePosition.y - originalPos.y);
+                // Calculate delta from start position
+                var delta = evt.mousePosition - startPosition;
 
-                // Apply the movement
+                // Apply the movement to the dragged item
                 itemContainer.style.top = delta.y;
+
+                // Find the position to insert the placeholder
+                var parent = placeholder.parent;
+                var mouseY = evt.mousePosition.y;
+
+                // Get all siblings except the dragged item and placeholder
+                var siblings = parent.Children().Where(c => c != itemContainer && c != placeholder).ToList();
+
+                // Find the closest sibling to insert the placeholder
+                int targetIndex = -1;
+                float minDistance = float.MaxValue;
+
+                for (int i = 0; i < siblings.Count; i++)
+                {
+                    var sibling = siblings[i];
+                    var siblingRect = sibling.worldBound;
+                    var siblingCenter = siblingRect.center.y;
+
+                    // Calculate distance to the center of this sibling
+                    float distance = Mathf.Abs(mouseY - siblingCenter);
+
+                    if (distance < minDistance)
+                    {
+                        minDistance = distance;
+
+                        // Determine if we should insert before or after this sibling
+                        if (mouseY < siblingCenter)
+                            targetIndex = parent.IndexOf(sibling);
+                        else
+                            targetIndex = parent.IndexOf(sibling) + 1;
+                    }
+                }
+
+                // If we found a valid position and it's different from the current position
+                if (targetIndex >= 0 && parent.IndexOf(placeholder) != targetIndex)
+                {
+                    // Move the placeholder to the new position
+                    parent.Remove(placeholder);
+
+                    if (targetIndex >= parent.childCount)
+                        parent.Add(placeholder);
+                    else
+                        parent.Insert(targetIndex, placeholder);
+                }
             }
         });
 
@@ -333,46 +395,25 @@ public class HapticsAnnotationWindow : EditorWindow
                 itemContainer.ReleaseMouse();
                 itemContainer.RemoveFromClassList("dragging");
 
-                // Reset position
+                // Reset position style
+                itemContainer.style.position = Position.Relative;
                 itemContainer.style.top = 0;
 
-                // Find the new position in the list
-                var parent = itemContainer.parent;
-                var mouseY = evt.mousePosition.y;
+                // Get the parent and the placeholder position
+                var parent = placeholder.parent;
+                int placeholderIndex = parent.IndexOf(placeholder);
 
-                // Find the closest item to drop position
-                var siblings = parent.Children().ToList();
-                int currentIndex = siblings.IndexOf(itemContainer);
-                int targetIndex = currentIndex;
+                // Remove the placeholder
+                parent.Remove(placeholder);
+                placeholder = null;
 
-                for (int i = 0; i < siblings.Count; i++)
-                {
-                    if (i == currentIndex) continue;
+                // Move the item to the placeholder's position
+                parent.Remove(itemContainer);
 
-                    var sibling = siblings[i];
-                    var siblingRect = sibling.worldBound;
-
-                    if (mouseY > siblingRect.yMin && mouseY < siblingRect.yMax)
-                    {
-                        targetIndex = i;
-                        break;
-                    }
-                }
-
-                // Reorder the item
-                if (targetIndex != currentIndex)
-                {
-                    parent.Remove(itemContainer);
-
-                    if (targetIndex >= siblings.Count)
-                    {
-                        parent.Add(itemContainer);
-                    }
-                    else
-                    {
-                        parent.Insert(targetIndex, itemContainer);
-                    }
-                }
+                if (placeholderIndex >= parent.childCount)
+                    parent.Add(itemContainer);
+                else
+                    parent.Insert(placeholderIndex, itemContainer);
             }
         });
     }
