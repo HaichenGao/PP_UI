@@ -245,6 +245,11 @@ public class HapticsRelationshipGraphView : GraphView
 
         return data;
     }
+
+    public List<HapticNode> GetNodes()
+    {
+        return _nodes;
+    }
 }
 
 // Minimal data structure to hold annotation data
@@ -275,6 +280,26 @@ public class HapticConnectionRecord
 // Example node class: represents one VR object in the graph
 public class HapticNode : Node
 {
+    // Add a delegate and event for engagement level changes
+    public delegate void EngagementLevelChangedEventHandler(HapticNode node, int newLevel);
+    public static event EngagementLevelChangedEventHandler OnEngagementLevelChanged;
+
+    private int _engagementLevel = 1; // Default to Medium Engagement (index 1)
+
+    public int EngagementLevel
+    {
+        get => _engagementLevel;
+        private set
+        {
+            if (_engagementLevel != value)
+            {
+                _engagementLevel = value;
+                // Trigger the event when engagement level changes
+                OnEngagementLevelChanged?.Invoke(this, value);
+            }
+        }
+    }
+
     public GameObject AssociatedObject { get; private set; }
     
     private List<Port> _outputPorts = new List<Port>();
@@ -282,8 +307,6 @@ public class HapticNode : Node
     private IMGUIContainer _previewContainer;
     private Editor _gameObjectEditor;
     private bool _needsEditorUpdate = true;
-
-    public int EngagementLevel { get; private set; } = 1; // Default to Medium Engagement (index 1)
 
     // Class to hold port and its associated text field
     private class ToolMediatedPortData
@@ -298,9 +321,10 @@ public class HapticNode : Node
         AssociatedObject = go;
         title = go.name;
 
-        // Create a container for the preview and radio buttons
+        // Create a container for the preview and radio buttons with proper layout
         var previewAndControlsContainer = new VisualElement();
         previewAndControlsContainer.AddToClassList("preview-controls-container");
+
 
         // Create a preview container using IMGUI
         _previewContainer = new IMGUIContainer(() => {
@@ -355,7 +379,8 @@ public class HapticNode : Node
         radioGroupContainer.Add(mediumEngagementRadio);
         radioGroupContainer.Add(lowEngagementRadio);
 
-        // Add the radio group to the container
+        // Add both containers to the main container
+        previewAndControlsContainer.Add(_previewContainer);
         previewAndControlsContainer.Add(radioGroupContainer);
 
         // Add the container to the node
@@ -497,8 +522,8 @@ public class HapticNode : Node
         textField.label = "";
 
         // Expand the width to use available space
-        textField.style.width = 180;
-        textField.style.marginLeft = 5;
+        textField.style.width = 150;
+        textField.style.marginLeft = 2;
         textField.style.marginRight = 5;
 
         // Add tooltip for better UX

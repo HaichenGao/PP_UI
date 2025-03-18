@@ -92,6 +92,9 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Start checking for selection changes
         EditorApplication.update += CheckSelectionChange;
+
+        // Register for engagement level changes
+        HapticNode.OnEngagementLevelChanged += OnNodeEngagementLevelChanged;
     }
 
     private void OnDisable()
@@ -103,6 +106,18 @@ public class HapticsAnnotationWindow : EditorWindow
         }
 
         EditorApplication.update -= CheckSelectionChange;
+
+        // Unregister from engagement level changes
+        HapticNode.OnEngagementLevelChanged -= OnNodeEngagementLevelChanged;
+    }
+
+    private void OnNodeEngagementLevelChanged(HapticNode node, int newLevel)
+    {
+        // If we're showing the graph inspector, update it to reflect the new engagement levels
+        if (_graphView.selection.Count == 0)
+        {
+            UpdateInspector(null);
+        }
     }
 
     private void CheckSelectionChange()
@@ -187,7 +202,8 @@ public class HapticsAnnotationWindow : EditorWindow
             _inspectorContent.Add(summaryLabel);
             _inspectorContent.Add(summaryField);
 
-            // Graph Statistics section removed as requested
+            // Add engagement level lists
+            AddEngagementLevelLists();
         }
         else
         {
@@ -200,6 +216,165 @@ public class HapticsAnnotationWindow : EditorWindow
             // For now, we'll leave the node inspector blank as requested
             // This is where you would add node-specific properties
         }
+    }
+
+    private void AddEngagementLevelLists()
+    {
+        // Get all nodes from the graph view
+        var allNodes = _graphView.GetNodes();
+
+        // Group nodes by engagement level
+        var highEngagementNodes = allNodes.Where(n => n.EngagementLevel == 2).ToList();
+        var mediumEngagementNodes = allNodes.Where(n => n.EngagementLevel == 1).ToList();
+        var lowEngagementNodes = allNodes.Where(n => n.EngagementLevel == 0).ToList();
+
+        // Create a container for all lists
+        var listsContainer = new VisualElement();
+        listsContainer.style.marginTop = 20;
+
+        // Add High Engagement list
+        AddReorderableList(listsContainer, "High Engagement", highEngagementNodes);
+
+        // Add Medium Engagement list
+        AddReorderableList(listsContainer, "Medium Engagement", mediumEngagementNodes);
+
+        // Add Low Engagement list
+        AddReorderableList(listsContainer, "Low Engagement", lowEngagementNodes);
+
+        _inspectorContent.Add(listsContainer);
+    }
+
+    private void AddReorderableList(VisualElement container, string title, List<HapticNode> nodes)
+    {
+        // Create a foldout for the list
+        var foldout = new Foldout();
+        foldout.text = title;
+        foldout.value = true; // Expanded by default
+        foldout.AddToClassList("engagement-foldout");
+
+        // Create the list container
+        var listContainer = new VisualElement();
+        listContainer.AddToClassList("reorderable-list-container");
+
+        // Add each node to the list
+        foreach (var node in nodes)
+        {
+            var itemContainer = CreateReorderableListItem(node);
+            listContainer.Add(itemContainer);
+        }
+
+        foldout.Add(listContainer);
+        container.Add(foldout);
+    }
+
+    private VisualElement CreateReorderableListItem(HapticNode node)
+    {
+        // Create the container for the list item
+        var itemContainer = new VisualElement();
+        itemContainer.AddToClassList("reorderable-list-item");
+
+        // Create the equals sign
+        var equalsSign = new Label("=");
+        equalsSign.AddToClassList("equals-sign");
+
+        // Create the label for the node name
+        var nodeLabel = new Label(node.title);
+        nodeLabel.AddToClassList("node-label");
+
+        // Add elements to the item container
+        itemContainer.Add(equalsSign);
+        itemContainer.Add(nodeLabel);
+
+        // Make the item draggable
+        itemContainer.userData = node; // Store the node reference for drag operations
+
+        // Add drag functionality
+        SetupDragAndDrop(itemContainer);
+
+        // Add click handler to select the node in the graph
+        itemContainer.RegisterCallback<ClickEvent>(evt => {
+            // Select the node in the graph view
+            _graphView.ClearSelection();
+            _graphView.AddToSelection(node);
+        });
+
+        return itemContainer;
+    }
+
+    private void SetupDragAndDrop(VisualElement itemContainer)
+    {
+        // Make the item draggable
+        itemContainer.RegisterCallback<MouseDownEvent>(evt => {
+            // Start drag operation
+            itemContainer.CaptureMouse();
+            itemContainer.AddToClassList("dragging");
+
+            // Store the original position and prevent selection during drag
+            itemContainer.userData = new Vector2(evt.mousePosition.x, evt.mousePosition.y);
+            evt.StopPropagation();
+        });
+
+        itemContainer.RegisterCallback<MouseMoveEvent>(evt => {
+            if (itemContainer.HasMouseCapture())
+            {
+                // Move the item
+                var originalPos = (Vector2)itemContainer.userData;
+                var delta = new Vector2(evt.mousePosition.x - originalPos.x, evt.mousePosition.y - originalPos.y);
+
+                // Apply the movement
+                itemContainer.style.top = delta.y;
+            }
+        });
+
+        itemContainer.RegisterCallback<MouseUpEvent>(evt => {
+            if (itemContainer.HasMouseCapture())
+            {
+                // End drag operation
+                itemContainer.ReleaseMouse();
+                itemContainer.RemoveFromClassList("dragging");
+
+                // Reset position
+                itemContainer.style.top = 0;
+
+                // Find the new position in the list
+                var parent = itemContainer.parent;
+                var mouseY = evt.mousePosition.y;
+
+                // Find the closest item to drop position
+                var siblings = parent.Children().ToList();
+                int currentIndex = siblings.IndexOf(itemContainer);
+                int targetIndex = currentIndex;
+
+                for (int i = 0; i < siblings.Count; i++)
+                {
+                    if (i == currentIndex) continue;
+
+                    var sibling = siblings[i];
+                    var siblingRect = sibling.worldBound;
+
+                    if (mouseY > siblingRect.yMin && mouseY < siblingRect.yMax)
+                    {
+                        targetIndex = i;
+                        break;
+                    }
+                }
+
+                // Reorder the item
+                if (targetIndex != currentIndex)
+                {
+                    parent.Remove(itemContainer);
+
+                    if (targetIndex >= siblings.Count)
+                    {
+                        parent.Add(itemContainer);
+                    }
+                    else
+                    {
+                        parent.Insert(targetIndex, itemContainer);
+                    }
+                }
+            }
+        });
     }
 
     private void ToggleInspector()
