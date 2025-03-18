@@ -14,6 +14,9 @@ public class HapticsRelationshipGraphView : GraphView
 
     private readonly List<HapticNode> _nodes = new List<HapticNode>();
 
+    public delegate void GraphChangedEventHandler();
+    public static event GraphChangedEventHandler OnGraphChanged;
+
     public HapticsRelationshipGraphView()
     {
         style.flexGrow = 1;
@@ -96,9 +99,13 @@ public class HapticsRelationshipGraphView : GraphView
     // Intercept edge creation so we can instantiate HapticRelationshipEdge
     private GraphViewChange OnGraphViewChanged(GraphViewChange change)
     {
+        bool graphChanged = false;
+
         // Handle new edges (connections)
-        if (change.edgesToCreate != null)
+        if (change.edgesToCreate != null && change.edgesToCreate.Count > 0)
         {
+            graphChanged = true;
+
             foreach (var edge in change.edgesToCreate)
             {
                 // Notify the input port's node about the connection
@@ -116,8 +123,9 @@ public class HapticsRelationshipGraphView : GraphView
         }
 
         // Handle element removals (nodes and edges)
-        if (change.elementsToRemove != null)
+        if (change.elementsToRemove != null && change.elementsToRemove.Count > 0)
         {
+            graphChanged = true;
             // Create a list to store additional elements that need to be removed
             List<GraphElement> additionalElementsToRemove = new List<GraphElement>();
 
@@ -179,6 +187,11 @@ public class HapticsRelationshipGraphView : GraphView
             {
                 change.elementsToRemove.AddRange(additionalElementsToRemove);
             }
+        }
+
+        if (graphChanged)
+        {
+            OnGraphChanged?.Invoke();
         }
 
         return change;

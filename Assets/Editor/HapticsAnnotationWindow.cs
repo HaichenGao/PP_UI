@@ -95,6 +95,9 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Register for engagement level changes
         HapticNode.OnEngagementLevelChanged += OnNodeEngagementLevelChanged;
+
+        // Register for graph changes
+        HapticsRelationshipGraphView.OnGraphChanged += OnGraphChanged;
     }
 
     private void OnDisable()
@@ -109,15 +112,22 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Unregister from engagement level changes
         HapticNode.OnEngagementLevelChanged -= OnNodeEngagementLevelChanged;
+
+        // Unregister from graph changes
+        HapticsRelationshipGraphView.OnGraphChanged -= OnGraphChanged;
+    }
+
+    private void OnGraphChanged()
+    {
+        // Update the inspector to reflect the changes in the graph
+        UpdateInspector(null);
     }
 
     private void OnNodeEngagementLevelChanged(HapticNode node, int newLevel)
     {
-        // If we're showing the graph inspector, update it to reflect the new engagement levels
-        if (_graphView.selection.Count == 0)
-        {
-            UpdateInspector(null);
-        }
+        // Always update the inspector to reflect the new engagement levels
+        // This ensures the scroll containers are properly updated
+        UpdateInspector(null);
     }
 
     private void CheckSelectionChange()
@@ -252,18 +262,30 @@ public class HapticsAnnotationWindow : EditorWindow
         foldout.value = true; // Expanded by default
         foldout.AddToClassList("engagement-foldout");
 
-        // Create the list container
-        var listContainer = new VisualElement();
-        listContainer.AddToClassList("reorderable-list-container");
+        // Create a scrollable container if needed
+        var scrollContainer = new ScrollView();
+        scrollContainer.mode = ScrollViewMode.Vertical;
+        scrollContainer.verticalScrollerVisibility = ScrollerVisibility.Auto;
+
+        // Add the appropriate class
+        if (nodes.Count > 5)
+        {
+            scrollContainer.AddToClassList("scrollable-list-container");
+        }
+        else
+        {
+            // Still add some styling for consistency
+            scrollContainer.AddToClassList("reorderable-list-container");
+        }
 
         // Add each node to the list
         foreach (var node in nodes)
         {
             var itemContainer = CreateReorderableListItem(node);
-            listContainer.Add(itemContainer);
+            scrollContainer.Add(itemContainer);
         }
 
-        foldout.Add(listContainer);
+        foldout.Add(scrollContainer);
         container.Add(foldout);
     }
 

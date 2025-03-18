@@ -188,3 +188,41 @@
     pointer-events: none;
 }
 
+.scrollable-list-container {
+    max-height: 150px;
+    overflow: scroll;
+    border-radius: 3px;
+    border: 1px solid rgba(35, 35, 35, 0.2);
+    background-color: rgba(40, 40, 40, 0.3);
+    margin-top: 5px;
+    margin-bottom: 5px;
+}
+
+/* Style the scrollbar */
+.scrollable-list-container Scroller {
+    width: 10px;
+}
+
+.scrollable-list-container Scroller Slider {
+    width: 10px;
+}
+
+.scrollable-list-container Scroller Slider #unity-drag-container {
+    width: 10px;
+    background-color: rgba(60, 60, 60, 0.5);
+}
+
+.scrollable-list-container Scroller Slider #unity-dragger {
+    width: 8px;
+    border-radius: 4px;
+    background-color: rgba(180, 180, 180, 0.5);
+    margin-left: 1px;
+}
+
+.scrollable-list-container Scroller Slider #unity-dragger:hover {
+    background-color: rgba(200, 200, 200, 0.7);
+}
+
+.scrollable-list-container Scroller Slider #unity-dragger:active {
+    background-color: rgba(220, 220, 220, 0.9);
+}
