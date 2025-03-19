@@ -204,7 +204,9 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Create a container for all the inspector content
         var contentContainer = new VisualElement();
-        contentContainer.style.paddingRight = 10; // Add some padding for the scrollbar
+        contentContainer.style.paddingRight = 5; // Add some padding for the scrollbar
+        contentContainer.style.paddingLeft = 5;
+        contentContainer.style.paddingTop = 5;
 
         // Add the container to the ScrollView
         scrollView.Add(contentContainer);

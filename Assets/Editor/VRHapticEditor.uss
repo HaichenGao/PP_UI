@@ -144,7 +144,7 @@
 }
 
 .inspector-section-title {
-    font-size: 13px;
+    font-size: 12px;
     -unity-font-style: bold;
     margin-bottom: 10px;
 }
