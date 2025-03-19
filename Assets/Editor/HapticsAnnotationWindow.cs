@@ -357,25 +357,6 @@ public class HapticsAnnotationWindow : EditorWindow
         return itemContainer;
     }
 
-    //// New method to focus on a node without selecting it
-    //private void FocusOnNode(HapticNode node)
-    //{
-    //    if (_graphView != null && node != null)
-    //    {
-    //        // Get the node's position and size
-    //        Rect nodeRect = node.GetPosition();
-
-    //        // Calculate the center point of the node
-    //        Vector3 nodeCenter = new Vector3(
-    //            nodeRect.x + nodeRect.width / 2,
-    //            nodeRect.y + nodeRect.height / 2,
-    //            0);
-
-    //        // Frame the view on the node's position
-    //        _graphView.FrameAt(nodeCenter, 1.0f); // 1.0f is the zoom level, adjust as needed
-    //    }
-    //}
-
     private void SetupDragAndDrop(VisualElement itemContainer)
     {
         // Store original data for drag operation
