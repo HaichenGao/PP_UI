@@ -226,3 +226,4 @@
 .scrollable-list-container Scroller Slider #unity-dragger:active {
     background-color: rgba(220, 220, 220, 0.9);
 }
+

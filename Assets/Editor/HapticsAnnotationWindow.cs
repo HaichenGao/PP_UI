@@ -405,10 +405,13 @@ public class HapticsAnnotationWindow : EditorWindow
 
                     // Create a visual clone (ghost) for dragging
                     dragGhost = new VisualElement();
+                    dragGhost.AddToClassList("reorderable-list-item");
                     dragGhost.AddToClassList("dragging");
-                    dragGhost.style.position = Position.Absolute;
+
+                    // Set the width to match the original item
                     dragGhost.style.width = itemContainer.layout.width;
                     dragGhost.style.height = itemContainer.layout.height;
+                    dragGhost.style.position = Position.Absolute;
 
                     // Copy the content from the original item
                     var equalsSign = new Label("=");
@@ -417,20 +420,27 @@ public class HapticsAnnotationWindow : EditorWindow
                     var nodeLabel = new Label(((HapticNode)itemContainer.userData).title);
                     nodeLabel.AddToClassList("node-label");
 
+                    // Add the elements to the ghost in the same order
                     dragGhost.Add(equalsSign);
                     dragGhost.Add(nodeLabel);
 
-                    // Add the ghost to the root visual element to ensure it can be positioned anywhere
-                    var root = itemContainer.panel.visualTree.Q("root");
-                    if (root != null)
+                    // Add the ghost to the root visual element
+                    // Use the EditorWindow's rootVisualElement to ensure it stays visible
+                    var window = EditorWindow.focusedWindow;
+                    if (window != null)
                     {
-                        root.Add(dragGhost);
+                        window.rootVisualElement.Add(dragGhost);
                     }
                     else
                     {
-                        // Fallback to the panel's root if we can't find our specific root
+                        // Fallback to the panel's root
                         itemContainer.panel.visualTree.Add(dragGhost);
                     }
+
+                    // Position the ghost initially
+                    Vector2 mousePos = evt.mousePosition;
+                    dragGhost.style.left = mousePos.x - 15;
+                    dragGhost.style.top = mousePos.y - (itemContainer.layout.height / 2);
                 }
 
                 if (isDragging && dragGhost != null && parent != null)
@@ -438,8 +448,8 @@ public class HapticsAnnotationWindow : EditorWindow
                     // Position the ghost at the mouse position
                     Vector2 mousePos = evt.mousePosition;
 
-                    // Adjust position to center the ghost on the mouse cursor
-                    dragGhost.style.left = mousePos.x - (dragGhost.layout.width / 2);
+                    // Position the ghost directly under the cursor
+                    dragGhost.style.left = mousePos.x - 15; // Offset to align with cursor
                     dragGhost.style.top = mousePos.y - (dragGhost.layout.height / 2);
 
                     // Find the position to insert the placeholder
@@ -468,6 +478,12 @@ public class HapticsAnnotationWindow : EditorWindow
                             else
                                 targetIndex = parent.IndexOf(sibling) + 1;
                         }
+                    }
+
+                    // If we have no siblings, just add at the beginning
+                    if (siblings.Count == 0)
+                    {
+                        targetIndex = 0;
                     }
 
                     // If we found a valid position and it's different from the current position
