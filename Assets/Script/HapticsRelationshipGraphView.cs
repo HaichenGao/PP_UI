@@ -263,6 +263,61 @@ public class HapticsRelationshipGraphView : GraphView
     {
         return _nodes;
     }
+
+    //public void FrameAt(Vector3 position, float scale = 1.0f)
+    //{
+    //    // Calculate the view transform to center on the given position
+    //    Matrix4x4 viewTransform = Matrix4x4.TRS(
+    //        new Vector3(viewTransform.position.x, viewTransform.position.y, 0) - position * scale,
+    //        Quaternion.identity,
+    //        Vector3.one * scale);
+
+    //    // Apply the transform
+    //    UpdateViewTransform(viewTransform.position, scale);
+    //}
+
+    //public void FrameNode(HapticNode node)
+    //{
+    //    if (node == null) return;
+
+    //    // Get the node's position and size
+    //    Rect nodeRect = node.GetPosition();
+
+    //    // Create a rect that's slightly larger than the node for better framing
+    //    Rect frameRect = new Rect(
+    //        nodeRect.x - 50, // Add some padding
+    //        nodeRect.y - 50,
+    //        nodeRect.width + 100, // Make it wider
+    //        nodeRect.height + 100); // Make it taller
+
+    //    // Use the built-in Frame method to focus on this area
+    //    Frame(frameRect);
+    //}
+
+    public void FrameAndFocusNode(HapticNode node, bool select = false)
+    {
+        if (node == null) return;
+
+        // Store the current selection
+        var currentSelection = selection.ToList();
+
+        // Temporarily select the node we want to frame
+        ClearSelection();
+        AddToSelection(node);
+
+        // Use the built-in method to frame the selection
+        FrameSelection();
+
+        // If we don't want to keep the node selected, restore the previous selection
+        if (!select)
+        {
+            ClearSelection();
+            foreach (var item in currentSelection)
+            {
+                AddToSelection(item);
+            }
+        }
+    }
 }
 
 // Minimal data structure to hold annotation data
