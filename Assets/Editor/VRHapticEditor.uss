@@ -227,3 +227,15 @@
     background-color: rgba(220, 220, 220, 0.9);
 }
 
+.dragging-source {
+    opacity: 0.5;
+    border: 1px dashed rgba(100, 100, 100, 0.5);
+}
+
+.drop-target-above {
+    border-top: 2px solid #3a79bb;
+}
+
+.drop-target-below {
+    border-bottom: 2px solid #3a79bb;
+}

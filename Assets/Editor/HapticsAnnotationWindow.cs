@@ -396,10 +396,6 @@ public class HapticsAnnotationWindow : EditorWindow
                     placeholder.AddToClassList("reorderable-list-placeholder");
                     placeholder.style.height = itemContainer.layout.height;
 
-                    // Insert placeholder at the same position
-                    int index = parent.IndexOf(itemContainer);
-                    parent.Insert(index, placeholder);
-
                     // Hide the original item
                     itemContainer.style.visibility = Visibility.Hidden;
 
@@ -425,7 +421,6 @@ public class HapticsAnnotationWindow : EditorWindow
                     dragGhost.Add(nodeLabel);
 
                     // Add the ghost to the root visual element
-                    // Use the EditorWindow's rootVisualElement to ensure it stays visible
                     var window = EditorWindow.focusedWindow;
                     if (window != null)
                     {
@@ -452,7 +447,7 @@ public class HapticsAnnotationWindow : EditorWindow
                     dragGhost.style.left = mousePos.x - 15; // Offset to align with cursor
                     dragGhost.style.top = mousePos.y - (dragGhost.layout.height / 2);
 
-                    // Find the position to insert the placeholder
+                    // Find all siblings (excluding the dragged item)
                     var siblings = parent.Children().Where(c => c != itemContainer && c != placeholder).ToList();
 
                     // Find the closest sibling to insert the placeholder
@@ -486,8 +481,19 @@ public class HapticsAnnotationWindow : EditorWindow
                         targetIndex = 0;
                     }
 
-                    // If we found a valid position and it's different from the current position
-                    if (targetIndex >= 0 && parent.IndexOf(placeholder) != targetIndex)
+                    // If the placeholder doesn't exist yet, add it
+                    if (placeholder.parent == null)
+                    {
+                        if (targetIndex >= 0)
+                        {
+                            if (targetIndex >= parent.childCount)
+                                parent.Add(placeholder);
+                            else
+                                parent.Insert(targetIndex, placeholder);
+                        }
+                    }
+                    // If the placeholder exists and needs to move
+                    else if (targetIndex >= 0 && parent.IndexOf(placeholder) != targetIndex)
                     {
                         // Move the placeholder to the new position
                         parent.Remove(placeholder);
@@ -507,7 +513,7 @@ public class HapticsAnnotationWindow : EditorWindow
                 // End drag operation
                 itemContainer.ReleaseMouse();
 
-                if (isDragging && parent != null && placeholder != null)
+                if (isDragging && parent != null && placeholder != null && placeholder.parent != null)
                 {
                     // Remove the drag ghost
                     if (dragGhost != null && dragGhost.parent != null)
@@ -516,9 +522,6 @@ public class HapticsAnnotationWindow : EditorWindow
                         dragGhost = null;
                     }
 
-                    // Make the original item visible again
-                    itemContainer.style.visibility = Visibility.Visible;
-
                     // Get the placeholder position
                     int placeholderIndex = parent.IndexOf(placeholder);
 
@@ -526,16 +529,35 @@ public class HapticsAnnotationWindow : EditorWindow
                     parent.Remove(placeholder);
                     placeholder = null;
 
-                    // Move the item to the placeholder's position
-                    parent.Remove(itemContainer);
+                    // Make the original item visible again
+                    itemContainer.style.visibility = Visibility.Visible;
 
-                    if (placeholderIndex >= parent.childCount)
-                        parent.Add(itemContainer);
-                    else
-                        parent.Insert(placeholderIndex, itemContainer);
+                    // Get the current index of the item
+                    int currentIndex = parent.IndexOf(itemContainer);
 
-                    // Update the ordered lists based on the new order
-                    UpdateOrderedListsFromUI();
+                    // Only move if the position has changed
+                    if (currentIndex != placeholderIndex)
+                    {
+                        // Remove the item from its current position
+                        parent.Remove(itemContainer);
+
+                        // Adjust the target index if needed
+                        // This is the key fix for the ordering issue
+                        int targetIndex = placeholderIndex;
+                        if (currentIndex < placeholderIndex)
+                        {
+                            targetIndex--;
+                        }
+
+                        // Insert at the adjusted target position
+                        if (targetIndex >= parent.childCount)
+                            parent.Add(itemContainer);
+                        else
+                            parent.Insert(targetIndex, itemContainer);
+
+                        // Update the ordered lists based on the new order
+                        UpdateOrderedListsFromUI();
+                    }
                 }
 
                 // Reset state
