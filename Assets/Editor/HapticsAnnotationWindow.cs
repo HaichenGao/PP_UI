@@ -360,86 +360,127 @@ public class HapticsAnnotationWindow : EditorWindow
     private void SetupDragAndDrop(VisualElement itemContainer)
     {
         // Store original data for drag operation
-        Vector2 startPosition = Vector2.zero;
+        Vector2 mouseStartPosition = Vector2.zero;
         VisualElement placeholder = null;
+        VisualElement dragGhost = null;
         HapticNode draggedNode = itemContainer.userData as HapticNode;
+        VisualElement parent = null;
+        bool isDragging = false;
 
         // Make the item draggable
         itemContainer.RegisterCallback<MouseDownEvent>(evt => {
             // Start drag operation
             itemContainer.CaptureMouse();
-            itemContainer.AddToClassList("dragging");
+            mouseStartPosition = evt.mousePosition;
 
-            // Store the original position
-            startPosition = evt.mousePosition;
-
-            // Create a placeholder element with the same size as the dragged item
-            placeholder = new VisualElement();
-            placeholder.AddToClassList("reorderable-list-placeholder");
-            placeholder.style.height = itemContainer.layout.height;
-
-            // Insert the placeholder at the same position as the dragged item
-            var parent = itemContainer.parent;
-            int index = parent.IndexOf(itemContainer);
-            parent.Insert(index, placeholder);
-
-            // Make the dragged item absolute positioned
-            itemContainer.style.position = Position.Absolute;
-
+            // We'll wait for mouse move to actually start dragging
             evt.StopPropagation();
         });
 
         itemContainer.RegisterCallback<MouseMoveEvent>(evt => {
             if (itemContainer.HasMouseCapture())
             {
-                // Calculate delta from start position
-                var delta = evt.mousePosition - startPosition;
-
-                // Apply the movement to the dragged item
-                itemContainer.style.top = delta.y;
-
-                // Find the position to insert the placeholder
-                var parent = placeholder.parent;
-                var mouseY = evt.mousePosition.y;
-
-                // Get all siblings except the dragged item and placeholder
-                var siblings = parent.Children().Where(c => c != itemContainer && c != placeholder).ToList();
-
-                // Find the closest sibling to insert the placeholder
-                int targetIndex = -1;
-                float minDistance = float.MaxValue;
-
-                for (int i = 0; i < siblings.Count; i++)
+                // Check if we've moved enough to start dragging
+                float dragThreshold = 5f; // pixels
+                if (!isDragging && Vector2.Distance(mouseStartPosition, evt.mousePosition) > dragThreshold)
                 {
-                    var sibling = siblings[i];
-                    var siblingRect = sibling.worldBound;
-                    var siblingCenter = siblingRect.center.y;
+                    // Start the actual drag operation
+                    isDragging = true;
 
-                    // Calculate distance to the center of this sibling
-                    float distance = Mathf.Abs(mouseY - siblingCenter);
+                    // Get the parent
+                    parent = itemContainer.parent;
+                    if (parent == null) return;
 
-                    if (distance < minDistance)
+                    // Create a placeholder with the same size
+                    placeholder = new VisualElement();
+                    placeholder.AddToClassList("reorderable-list-placeholder");
+                    placeholder.style.height = itemContainer.layout.height;
+
+                    // Insert placeholder at the same position
+                    int index = parent.IndexOf(itemContainer);
+                    parent.Insert(index, placeholder);
+
+                    // Hide the original item
+                    itemContainer.style.visibility = Visibility.Hidden;
+
+                    // Create a visual clone (ghost) for dragging
+                    dragGhost = new VisualElement();
+                    dragGhost.AddToClassList("dragging");
+                    dragGhost.style.position = Position.Absolute;
+                    dragGhost.style.width = itemContainer.layout.width;
+                    dragGhost.style.height = itemContainer.layout.height;
+
+                    // Copy the content from the original item
+                    var equalsSign = new Label("=");
+                    equalsSign.AddToClassList("equals-sign");
+
+                    var nodeLabel = new Label(((HapticNode)itemContainer.userData).title);
+                    nodeLabel.AddToClassList("node-label");
+
+                    dragGhost.Add(equalsSign);
+                    dragGhost.Add(nodeLabel);
+
+                    // Add the ghost to the root visual element to ensure it can be positioned anywhere
+                    var root = itemContainer.panel.visualTree.Q("root");
+                    if (root != null)
                     {
-                        minDistance = distance;
-
-                        // Determine if we should insert before or after this sibling
-                        if (mouseY < siblingCenter)
-                            targetIndex = parent.IndexOf(sibling);
-                        else
-                            targetIndex = parent.IndexOf(sibling) + 1;
+                        root.Add(dragGhost);
+                    }
+                    else
+                    {
+                        // Fallback to the panel's root if we can't find our specific root
+                        itemContainer.panel.visualTree.Add(dragGhost);
                     }
                 }
 
-                // If we found a valid position and it's different from the current position
-                if (targetIndex >= 0 && parent.IndexOf(placeholder) != targetIndex)
+                if (isDragging && dragGhost != null && parent != null)
                 {
-                    // Move the placeholder to the new position
-                    parent.Remove(placeholder);
+                    // Position the ghost at the mouse position
+                    Vector2 mousePos = evt.mousePosition;
 
-                    if (targetIndex >= parent.childCount)
-                        parent.Add(placeholder);
-                    else
-                        parent.Insert(targetIndex, placeholder);
+                    // Adjust position to center the ghost on the mouse cursor
+                    dragGhost.style.left = mousePos.x - (dragGhost.layout.width / 2);
+                    dragGhost.style.top = mousePos.y - (dragGhost.layout.height / 2);
+
+                    // Find the position to insert the placeholder
+                    var siblings = parent.Children().Where(c => c != itemContainer && c != placeholder).ToList();
+
+                    // Find the closest sibling to insert the placeholder
+                    int targetIndex = -1;
+                    float minDistance = float.MaxValue;
+
+                    for (int i = 0; i < siblings.Count; i++)
+                    {
+                        var sibling = siblings[i];
+                        var siblingRect = sibling.worldBound;
+                        var siblingCenter = siblingRect.center.y;
+
+                        // Calculate distance to the center of this sibling
+                        float distance = Mathf.Abs(mousePos.y - siblingCenter);
+
+                        if (distance < minDistance)
+                        {
+                            minDistance = distance;
+
+                            // Determine if we should insert before or after this sibling
+                            if (mousePos.y < siblingCenter)
+                                targetIndex = parent.IndexOf(sibling);
+                            else
+                                targetIndex = parent.IndexOf(sibling) + 1;
+                        }
+                    }
+
+                    // If we found a valid position and it's different from the current position
+                    if (targetIndex >= 0 && parent.IndexOf(placeholder) != targetIndex)
+                    {
+                        // Move the placeholder to the new position
+                        parent.Remove(placeholder);
+
+                        if (targetIndex >= parent.childCount)
+                            parent.Add(placeholder);
+                        else
+                            parent.Insert(targetIndex, placeholder);
+                    }
                 }
             }
         });
@@ -449,30 +490,41 @@ public class HapticsAnnotationWindow : EditorWindow
             {
                 // End drag operation
                 itemContainer.ReleaseMouse();
-                itemContainer.RemoveFromClassList("dragging");
 
-                // Reset position style
-                itemContainer.style.position = Position.Relative;
-                itemContainer.style.top = 0;
+                if (isDragging && parent != null && placeholder != null)
+                {
+                    // Remove the drag ghost
+                    if (dragGhost != null && dragGhost.parent != null)
+                    {
+                        dragGhost.parent.Remove(dragGhost);
+                        dragGhost = null;
+                    }
 
-                // Get the parent and the placeholder position
-                var parent = placeholder.parent;
-                int placeholderIndex = parent.IndexOf(placeholder);
+                    // Make the original item visible again
+                    itemContainer.style.visibility = Visibility.Visible;
 
-                // Remove the placeholder
-                parent.Remove(placeholder);
-                placeholder = null;
+                    // Get the placeholder position
+                    int placeholderIndex = parent.IndexOf(placeholder);
 
-                // Move the item to the placeholder's position
-                parent.Remove(itemContainer);
+                    // Remove the placeholder
+                    parent.Remove(placeholder);
+                    placeholder = null;
 
-                if (placeholderIndex >= parent.childCount)
-                    parent.Add(itemContainer);
-                else
-                    parent.Insert(placeholderIndex, itemContainer);
+                    // Move the item to the placeholder's position
+                    parent.Remove(itemContainer);
 
-                // Update the ordered lists based on the new order
-                UpdateOrderedListsFromUI();
+                    if (placeholderIndex >= parent.childCount)
+                        parent.Add(itemContainer);
+                    else
+                        parent.Insert(placeholderIndex, itemContainer);
+
+                    // Update the ordered lists based on the new order
+                    UpdateOrderedListsFromUI();
+                }
+
+                // Reset state
+                isDragging = false;
+                parent = null;
             }
         });
     }
