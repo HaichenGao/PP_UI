@@ -159,10 +159,11 @@
 }
 
 .reorderable-list-container {
-    margin-left: 15px;
     margin-top: 5px;
-    max-height: 200px; /* Limit maximum height */
-    overflow-y: auto; /* Add scrolling when needed */
+    max-height: 200px;
+    overflow-y: auto;
+    padding-left: 15px; /* Change from margin-left to padding-left */
+    padding-right: 5px; /* Add right padding for balance */
 }
 
 .reorderable-list-item {
@@ -222,7 +223,9 @@
     border: 1px solid rgba(35, 35, 35, 0.2);
     background-color: rgba(40, 40, 40, 0.3);
     margin-top: 5px;
+    margin-left: 15px;
     margin-bottom: 5px;
+    padding-right: 5px; /* Add right padding for balance */
 }
 
 /* Style the scrollbar */
