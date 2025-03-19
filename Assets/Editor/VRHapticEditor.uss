@@ -101,9 +101,36 @@
     flex-direction: column;
 }
 
-.inspector-content {
-    padding: 5px;
+.inspector-content ScrollView {
     flex-grow: 1;
+}
+
+.inspector-content ScrollView Scroller {
+    width: 10px;
+}
+
+.inspector-content ScrollView Scroller Slider {
+    width: 10px;
+}
+
+.inspector-content ScrollView Scroller Slider #unity-drag-container {
+    width: 10px;
+    background-color: rgba(60, 60, 60, 0.5);
+}
+
+.inspector-content ScrollView Scroller Slider #unity-dragger {
+    width: 8px;
+    border-radius: 4px;
+    background-color: rgba(180, 180, 180, 0.5);
+    margin-left: 1px;
+}
+
+.inspector-content ScrollView Scroller Slider #unity-dragger:hover {
+    background-color: rgba(200, 200, 200, 0.7);
+}
+
+.inspector-content ScrollView Scroller Slider #unity-dragger:active {
+    background-color: rgba(220, 220, 220, 0.9);
 }
 
 .inspector-field {
@@ -132,7 +159,7 @@
 }
 
 .reorderable-list-container {
-    margin-left: 5px;
+    margin-left: 15px;
     margin-top: 5px;
     max-height: 200px; /* Limit maximum height */
     overflow-y: auto; /* Add scrolling when needed */
@@ -157,7 +184,7 @@
 
 .equals-sign {
     margin-right: 8px; /* Increased right margin */
-    font-size: 12px;
+    font-size: 15px;
     color: #888888;
     min-width: 10px; /* Ensure minimum width */
     flex-shrink: 0; /* Prevent shrinking */
@@ -226,6 +253,7 @@
 .scrollable-list-container Scroller Slider #unity-dragger:active {
     background-color: rgba(220, 220, 220, 0.9);
 }
+/* Style the scrollbar */
 
 .dragging-source {
     opacity: 0.5;

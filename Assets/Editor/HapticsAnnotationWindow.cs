@@ -188,9 +188,26 @@ public class HapticsAnnotationWindow : EditorWindow
         }
     }
 
+    // Modify the UpdateInspector method in HapticsAnnotationWindow.cs
     private void UpdateInspector(HapticNode selectedNode)
     {
+        // Clear the existing content
         _inspectorContent.Clear();
+
+        // Create a ScrollView to make the entire inspector content scrollable
+        var scrollView = new ScrollView();
+        scrollView.style.flexGrow = 1;
+        scrollView.verticalScrollerVisibility = ScrollerVisibility.Auto;
+
+        // Add the ScrollView to the inspector content
+        _inspectorContent.Add(scrollView);
+
+        // Create a container for all the inspector content
+        var contentContainer = new VisualElement();
+        contentContainer.style.paddingRight = 10; // Add some padding for the scrollbar
+
+        // Add the container to the ScrollView
+        scrollView.Add(contentContainer);
 
         if (selectedNode == null)
         {
@@ -217,13 +234,14 @@ public class HapticsAnnotationWindow : EditorWindow
                 _graphSummary = evt.newValue;
             });
 
-            _inspectorContent.Add(titleLabel);
-            _inspectorContent.Add(titleField);
-            _inspectorContent.Add(summaryLabel);
-            _inspectorContent.Add(summaryField);
+            // Add elements to the content container instead of directly to _inspectorContent
+            contentContainer.Add(titleLabel);
+            contentContainer.Add(titleField);
+            contentContainer.Add(summaryLabel);
+            contentContainer.Add(summaryField);
 
-            // Add engagement level lists
-            AddEngagementLevelLists();
+            // Add engagement level lists to the content container
+            AddEngagementLevelLists(contentContainer);
         }
         else
         {
@@ -231,14 +249,16 @@ public class HapticsAnnotationWindow : EditorWindow
             var nodeNameLabel = new Label("Node: " + selectedNode.title);
             nodeNameLabel.AddToClassList("inspector-section-title");
 
-            _inspectorContent.Add(nodeNameLabel);
+            // Add to the content container
+            contentContainer.Add(nodeNameLabel);
 
             // For now, we'll leave the node inspector blank as requested
             // This is where you would add node-specific properties
         }
     }
 
-    private void AddEngagementLevelLists()
+    // Update the AddEngagementLevelLists method to accept a parent container
+    private void AddEngagementLevelLists(VisualElement container)
     {
         // Get all nodes from the graph view
         var allNodes = _graphView.GetNodes();
@@ -266,7 +286,8 @@ public class HapticsAnnotationWindow : EditorWindow
         // Add Low Engagement list
         AddReorderableList(listsContainer, "Low Engagement", _orderedLowEngagementNodes);
 
-        _inspectorContent.Add(listsContainer);
+        // Add the lists container to the provided parent container
+        container.Add(listsContainer);
     }
 
     // Helper method to update ordered lists while preserving existing order
