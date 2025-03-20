@@ -188,7 +188,6 @@ public class HapticsAnnotationWindow : EditorWindow
         }
     }
 
-    // Modify the UpdateInspector method in HapticsAnnotationWindow.cs
     private void UpdateInspector(HapticNode selectedNode)
     {
         // Clear the existing content
@@ -204,9 +203,9 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Create a container for all the inspector content
         var contentContainer = new VisualElement();
-        contentContainer.style.paddingRight = 5; // Add some padding for the scrollbar
-        contentContainer.style.paddingLeft = 5;
-        contentContainer.style.paddingTop = 5;
+        contentContainer.style.paddingRight = 10; // Add some padding for the scrollbar
+        contentContainer.style.paddingLeft = 15; // Add left padding for better spacing
+        contentContainer.style.paddingTop = 10; // Add top padding for better spacing
 
         // Add the container to the ScrollView
         scrollView.Add(contentContainer);
@@ -214,6 +213,7 @@ public class HapticsAnnotationWindow : EditorWindow
         if (selectedNode == null)
         {
             // Create graph-level inspector
+            // (existing code for graph-level inspector)
             var titleLabel = new Label("Title");
             titleLabel.AddToClassList("inspector-field-label");
 
@@ -250,13 +250,60 @@ public class HapticsAnnotationWindow : EditorWindow
             // Create node-level inspector
             var nodeNameLabel = new Label(selectedNode.title);
             nodeNameLabel.AddToClassList("inspector-section-title");
+            nodeNameLabel.style.fontSize = 14;
+            nodeNameLabel.style.marginBottom = 15;
 
             // Add to the content container
             contentContainer.Add(nodeNameLabel);
 
-            // For now, we'll leave the node inspector blank as requested
-            // This is where you would add node-specific properties
+            // Add the six TreeViews with text fields
+            AddHapticPropertyTreeView(contentContainer, "Inertia", selectedNode,
+                value => selectedNode.Inertia = value, () => selectedNode.Inertia);
+
+            AddHapticPropertyTreeView(contentContainer, "Interactivity", selectedNode,
+                value => selectedNode.Interactivity = value, () => selectedNode.Interactivity);
+
+            AddHapticPropertyTreeView(contentContainer, "Outline", selectedNode,
+                value => selectedNode.Outline = value, () => selectedNode.Outline);
+
+            AddHapticPropertyTreeView(contentContainer, "Texture", selectedNode,
+                value => selectedNode.Texture = value, () => selectedNode.Texture);
+
+            AddHapticPropertyTreeView(contentContainer, "Hardness", selectedNode,
+                value => selectedNode.Hardness = value, () => selectedNode.Hardness);
+
+            AddHapticPropertyTreeView(contentContainer, "Temperature", selectedNode,
+                value => selectedNode.Temperature = value, () => selectedNode.Temperature);
         }
+    }
+
+    // Helper method to create a TreeView with a text field
+    private void AddHapticPropertyTreeView(VisualElement container, string propertyName,
+        HapticNode node, Action<string> setter, Func<string> getter)
+    {
+        // Create a Foldout (acts like a TreeView item)
+        var foldout = new Foldout();
+        foldout.text = propertyName;
+        foldout.value = false; // Collapsed by default
+        foldout.AddToClassList("haptic-property-foldout");
+
+        // Create the text field
+        var textField = new TextField();
+        textField.multiline = true;
+        textField.value = getter();
+        textField.style.height = 60;
+        textField.AddToClassList("haptic-property-field");
+
+        // Register callback to update the node property when the text changes
+        textField.RegisterValueChangedCallback(evt => {
+            setter(evt.newValue);
+        });
+
+        // Add the text field to the foldout
+        foldout.Add(textField);
+
+        // Add the foldout to the container
+        container.Add(foldout);
     }
 
     // Update the AddEngagementLevelLists method to accept a parent container

@@ -270,3 +270,29 @@
 .drop-target-below {
     border-bottom: 2px solid #3a79bb;
 }
+
+/* Add these styles to VRHapticEditor.uss */
+.haptic-property-foldout {
+    margin-bottom: 5px;
+    background-color: rgba(40, 40, 40, 0.3);
+    border-radius: 3px;
+    padding: 2px 0;
+}
+
+.haptic-property-foldout:hover {
+    background-color: rgba(50, 50, 50, 0.3);
+}
+
+.haptic-property-foldout > .unity-foldout__toggle {
+    margin-left: 3px;
+}
+
+.haptic-property-field {
+    margin: 5px 10px 8px 20px;
+    background-color: rgba(30, 30, 30, 0.6);
+    border-radius: 3px;
+}
+
+.unity-foldout__content {
+    margin-left: 0;
+}

@@ -209,9 +209,13 @@ public class HapticsRelationshipGraphView : GraphView
             data.nodeAnnotations.Add(new HapticObjectRecord
             {
                 objectName = hNode.AssociatedObject.name,
-                //directContact = hNode.DirectContact,
-                //expectedWeight = hNode.ExpectedWeight
-                // Add other fields as needed
+                inertia = hNode.Inertia,
+                interactivity = hNode.Interactivity,
+                outline = hNode.Outline,
+                texture = hNode.Texture,
+                hardness = hNode.Hardness,
+                temperature = hNode.Temperature,
+                engagementLevel = hNode.EngagementLevel
             });
 
             // Collect tool-mediated annotations
@@ -304,6 +308,13 @@ public class HapticAnnotationData
 public class HapticObjectRecord
 {
     public string objectName;
+    public string inertia;
+    public string interactivity;
+    public string outline;
+    public string texture;
+    public string hardness;
+    public string temperature;
+    public int engagementLevel;
 }
 
 // Record for each connection
@@ -321,6 +332,13 @@ public class HapticNode : Node
     // Add a delegate and event for engagement level changes
     public delegate void EngagementLevelChangedEventHandler(HapticNode node, int newLevel);
     public static event EngagementLevelChangedEventHandler OnEngagementLevelChanged;
+
+    public string Inertia { get; set; } = "";
+    public string Interactivity { get; set; } = "";
+    public string Outline { get; set; } = "";
+    public string Texture { get; set; } = "";
+    public string Hardness { get; set; } = "";
+    public string Temperature { get; set; } = "";
 
     private int _engagementLevel = 1; // Default to Medium Engagement (index 1)
 
