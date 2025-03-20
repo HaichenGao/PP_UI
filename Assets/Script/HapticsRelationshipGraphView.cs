@@ -364,6 +364,16 @@ public class HapticNode : Node
     public float HardnessValue { get; set; } = 0f;
     public float TemperatureValue { get; set; } = 0f;
 
+    public Dictionary<string, bool> PropertyFoldoutStates { get; private set; } = new Dictionary<string, bool>()
+    {
+        { "Inertia", false },
+        { "Interactivity", false },
+        { "Outline", false },
+        { "Texture", false },
+        { "Hardness", false },
+        { "Temperature", false }
+    };
+
     private int _engagementLevel = 1; // Default to Medium Engagement (index 1)
 
     public int EngagementLevel

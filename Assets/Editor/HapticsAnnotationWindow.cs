@@ -283,7 +283,6 @@ public class HapticsAnnotationWindow : EditorWindow
         }
     }
 
-    // Updated method to include sliders with absolute positioning and value field
     private void AddHapticPropertyTreeView(VisualElement container, string propertyName,
         HapticNode node, Action<string> setter, Func<string> getter,
         Action<float> sliderSetter, Func<float> sliderGetter)
@@ -295,8 +294,18 @@ public class HapticsAnnotationWindow : EditorWindow
         // Create a Foldout (acts like a TreeView item)
         var foldout = new Foldout();
         foldout.text = propertyName;
-        foldout.value = false; // Collapsed by default
+
+        // Use the saved state if available, otherwise default to closed
+        bool isOpen = node.PropertyFoldoutStates.ContainsKey(propertyName) ?
+            node.PropertyFoldoutStates[propertyName] : false;
+        foldout.value = isOpen;
+
         foldout.AddToClassList("haptic-property-foldout");
+
+        // Register callback to save the foldout state when it changes
+        foldout.RegisterValueChangedCallback(evt => {
+            node.PropertyFoldoutStates[propertyName] = evt.newValue;
+        });
 
         // Create the text field
         var textField = new TextField();
