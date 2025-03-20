@@ -306,7 +306,7 @@
     height: 4px;
     border-radius: 2px;
     background-color: rgba(80, 80, 80, 0.5);
-    margin-top: -5px;
+    margin-top: -7px;
 }
 
 .haptic-property-slider:hover .unity-base-slider__tracker {
@@ -328,7 +328,7 @@
     z-index: 11; /* Higher than the slider to ensure it's on top */
     background-color: rgba(60, 60, 60, 0.8);
     padding: 0;
-    margin: -3px 5px 0px 2px;
+    margin: -5px 5px 0px 2px;
     margin-bottom: -8px;
 }
 
