@@ -322,3 +322,20 @@
     margin-left: 3px;
     z-index: 5;
 }
+
+.slider-value-field {
+    font-size: 12px;
+    z-index: 11; /* Higher than the slider to ensure it's on top */
+    background-color: rgba(60, 60, 60, 0.8);
+    padding: 0;
+    margin: -3px 5px 0px 2px;
+    margin-bottom: -8px;
+}
+
+.slider-value-field .unity-base-field__input {
+    padding: 1px 2px;
+    margin: 0;
+    background-color: rgba(60, 60, 60, 0.8);
+    border-width: 1px;
+    border-color: rgba(80, 80, 80, 0.8);
+}

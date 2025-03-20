@@ -283,7 +283,7 @@ public class HapticsAnnotationWindow : EditorWindow
         }
     }
 
-    // Updated method to include sliders with absolute positioning
+    // Updated method to include sliders with absolute positioning and value field
     private void AddHapticPropertyTreeView(VisualElement container, string propertyName,
         HapticNode node, Action<string> setter, Func<string> getter,
         Action<float> sliderSetter, Func<float> sliderGetter)
@@ -324,19 +324,71 @@ public class HapticsAnnotationWindow : EditorWindow
         // Style the slider for absolute positioning
         slider.style.position = Position.Absolute;
         slider.style.width = 80;
-        slider.style.right = 10;
+        slider.style.right = 40; // Adjusted to make room for value field
         slider.style.top = 10; // Position it vertically centered in the header
+
+        // Create a value field to display and input the slider value
+        var valueField = new FloatField();
+        valueField.value = Mathf.Round(slider.value * 10) / 10f; // Round to nearest 0.1
+        valueField.AddToClassList("slider-value-field");
+        valueField.style.position = Position.Absolute;
+        valueField.style.right = 5;
+        valueField.style.top = 8; // Slightly adjusted to align with slider
+        valueField.style.width = 30;
+
+        // Remove the label from the float field
+        var labelElement = valueField.Q<Label>();
+        if (labelElement != null)
+        {
+            labelElement.style.display = DisplayStyle.None;
+        }
 
         // Register callback for slider value changes
         slider.RegisterValueChangedCallback(evt => {
-            sliderSetter(evt.newValue);
+            // Round to nearest 0.1
+            float roundedValue = Mathf.Round(evt.newValue * 10) / 10f;
+
+            // Update the slider value if it's different from the rounded value
+            if (Mathf.Abs(evt.newValue - roundedValue) > 0.001f)
+            {
+                slider.SetValueWithoutNotify(roundedValue);
+            }
+
+            // Update the value field without triggering its change event
+            valueField.SetValueWithoutNotify(roundedValue);
+
+            // Update the node property
+            sliderSetter(roundedValue);
         });
 
-        // Ensure the slider is on top layer to prevent foldout interference
-        slider.pickingMode = PickingMode.Position;
+        // Register callback for value field changes
+        valueField.RegisterValueChangedCallback(evt => {
+            // Clamp the value between 0 and 1
+            float clampedValue = Mathf.Clamp(evt.newValue, 0f, 1f);
 
-        // Add the slider to the property container
+            // Round to nearest 0.1
+            float roundedValue = Mathf.Round(clampedValue * 10) / 10f;
+
+            // Update the field if the value was clamped or rounded
+            if (Mathf.Abs(evt.newValue - roundedValue) > 0.001f)
+            {
+                valueField.SetValueWithoutNotify(roundedValue);
+            }
+
+            // Update the slider without triggering its change event
+            slider.SetValueWithoutNotify(roundedValue);
+
+            // Update the node property
+            sliderSetter(roundedValue);
+        });
+
+        // Ensure the slider and field are on top layer to prevent foldout interference
+        slider.pickingMode = PickingMode.Position;
+        valueField.pickingMode = PickingMode.Position;
+
+        // Add the slider and value field to the property container
         propertyContainer.Add(slider);
+        propertyContainer.Add(valueField);
 
         // Add the property container to the main container
         container.Add(propertyContainer);

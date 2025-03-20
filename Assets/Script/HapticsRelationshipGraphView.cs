@@ -357,12 +357,12 @@ public class HapticNode : Node
     public string Temperature { get; set; } = "";
 
     // Add float values for sliders (0-1 range)
-    public float InertiaValue { get; set; } = 0.5f;
-    public float InteractivityValue { get; set; } = 0.5f;
-    public float OutlineValue { get; set; } = 0.5f;
-    public float TextureValue { get; set; } = 0.5f;
-    public float HardnessValue { get; set; } = 0.5f;
-    public float TemperatureValue { get; set; } = 0.5f;
+    public float InertiaValue { get; set; } = 0f;
+    public float InteractivityValue { get; set; } = 0f;
+    public float OutlineValue { get; set; } = 0f;
+    public float TextureValue { get; set; } = 0f;
+    public float HardnessValue { get; set; } = 0f;
+    public float TemperatureValue { get; set; } = 0f;
 
     private int _engagementLevel = 1; // Default to Medium Engagement (index 1)
 
