@@ -339,20 +339,32 @@ public class HapticsAnnotationWindow : EditorWindow
         container.Add(listsContainer);
     }
 
-    // Helper method to update ordered lists while preserving existing order
     private void UpdateOrderedList(List<HapticNode> orderedList, List<HapticNode> currentNodes)
     {
-        // Remove nodes that are no longer in the current list
-        orderedList.RemoveAll(n => !currentNodes.Contains(n));
+        // Create a new list to hold the updated order
+        var updatedList = new List<HapticNode>();
 
-        // Add any new nodes that aren't already in the ordered list
-        foreach (var node in currentNodes)
+        // First, add all nodes that are already in the ordered list, in their current order
+        foreach (var node in orderedList)
         {
-            if (!orderedList.Contains(node))
+            if (currentNodes.Contains(node))
             {
-                orderedList.Add(node);
+                updatedList.Add(node);
             }
         }
+
+        // Then add any new nodes that aren't already in the ordered list
+        foreach (var node in currentNodes)
+        {
+            if (!updatedList.Contains(node))
+            {
+                updatedList.Add(node);
+            }
+        }
+
+        // Clear and repopulate the original list to maintain the reference
+        orderedList.Clear();
+        orderedList.AddRange(updatedList);
     }
 
     private void AddReorderableList(VisualElement container, string title, List<HapticNode> nodes)
@@ -379,7 +391,7 @@ public class HapticsAnnotationWindow : EditorWindow
             scrollContainer.AddToClassList("reorderable-list-container");
         }
 
-        // Add each node to the list
+        // Add each node to the list in the specified order
         foreach (var node in nodes)
         {
             var itemContainer = CreateReorderableListItem(node);
@@ -643,24 +655,25 @@ public class HapticsAnnotationWindow : EditorWindow
         // Find all ScrollView containers in the inspector
         var scrollContainers = _inspectorContent.Query<ScrollView>().ToList();
 
-        if (scrollContainers.Count >= 3)
+        // We need at least 4 ScrollView containers (main + 3 engagement levels)
+        if (scrollContainers.Count >= 4)
         {
-            // Clear our ordered lists
-            _orderedHighEngagementNodes.Clear();
-            _orderedMediumEngagementNodes.Clear();
-            _orderedLowEngagementNodes.Clear();
+            // The first ScrollView is the main container, so we skip it
+            var highEngagementContainer = scrollContainers[1];
+            var mediumEngagementContainer = scrollContainers[2];
+            var lowEngagementContainer = scrollContainers[3];
 
-            // Get the nodes in each container in their current order
-            var highEngagementContainer = scrollContainers[0];
-            var mediumEngagementContainer = scrollContainers[1];
-            var lowEngagementContainer = scrollContainers[2];
+            // Temporary lists to hold the new order
+            var newHighEngagementOrder = new List<HapticNode>();
+            var newMediumEngagementOrder = new List<HapticNode>();
+            var newLowEngagementOrder = new List<HapticNode>();
 
             // Update high engagement nodes
             foreach (var child in highEngagementContainer.Children())
             {
                 if (child.userData is HapticNode node)
                 {
-                    _orderedHighEngagementNodes.Add(node);
+                    newHighEngagementOrder.Add(node);
                 }
             }
 
@@ -669,7 +682,7 @@ public class HapticsAnnotationWindow : EditorWindow
             {
                 if (child.userData is HapticNode node)
                 {
-                    _orderedMediumEngagementNodes.Add(node);
+                    newMediumEngagementOrder.Add(node);
                 }
             }
 
@@ -678,8 +691,27 @@ public class HapticsAnnotationWindow : EditorWindow
             {
                 if (child.userData is HapticNode node)
                 {
-                    _orderedLowEngagementNodes.Add(node);
+                    newLowEngagementOrder.Add(node);
                 }
+            }
+
+            // Only update if we found nodes
+            if (newHighEngagementOrder.Count > 0)
+            {
+                _orderedHighEngagementNodes.Clear();
+                _orderedHighEngagementNodes.AddRange(newHighEngagementOrder);
+            }
+
+            if (newMediumEngagementOrder.Count > 0)
+            {
+                _orderedMediumEngagementNodes.Clear();
+                _orderedMediumEngagementNodes.AddRange(newMediumEngagementOrder);
+            }
+
+            if (newLowEngagementOrder.Count > 0)
+            {
+                _orderedLowEngagementNodes.Clear();
+                _orderedLowEngagementNodes.AddRange(newLowEngagementOrder);
             }
         }
     }
