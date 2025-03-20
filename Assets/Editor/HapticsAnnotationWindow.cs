@@ -248,7 +248,7 @@ public class HapticsAnnotationWindow : EditorWindow
         else
         {
             // Create node-level inspector
-            var nodeNameLabel = new Label("Node: " + selectedNode.title);
+            var nodeNameLabel = new Label(selectedNode.title);
             nodeNameLabel.AddToClassList("inspector-section-title");
 
             // Add to the content container
