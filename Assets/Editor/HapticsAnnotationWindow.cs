@@ -256,31 +256,42 @@ public class HapticsAnnotationWindow : EditorWindow
             // Add to the content container
             contentContainer.Add(nodeNameLabel);
 
-            // Add the six TreeViews with text fields
+            // Add the six TreeViews with text fields and sliders
             AddHapticPropertyTreeView(contentContainer, "Inertia", selectedNode,
-                value => selectedNode.Inertia = value, () => selectedNode.Inertia);
+                value => selectedNode.Inertia = value, () => selectedNode.Inertia,
+                value => selectedNode.InertiaValue = value, () => selectedNode.InertiaValue);
 
             AddHapticPropertyTreeView(contentContainer, "Interactivity", selectedNode,
-                value => selectedNode.Interactivity = value, () => selectedNode.Interactivity);
+                value => selectedNode.Interactivity = value, () => selectedNode.Interactivity,
+                value => selectedNode.InteractivityValue = value, () => selectedNode.InteractivityValue);
 
             AddHapticPropertyTreeView(contentContainer, "Outline", selectedNode,
-                value => selectedNode.Outline = value, () => selectedNode.Outline);
+                value => selectedNode.Outline = value, () => selectedNode.Outline,
+                value => selectedNode.OutlineValue = value, () => selectedNode.OutlineValue);
 
             AddHapticPropertyTreeView(contentContainer, "Texture", selectedNode,
-                value => selectedNode.Texture = value, () => selectedNode.Texture);
+                value => selectedNode.Texture = value, () => selectedNode.Texture,
+                value => selectedNode.TextureValue = value, () => selectedNode.TextureValue);
 
             AddHapticPropertyTreeView(contentContainer, "Hardness", selectedNode,
-                value => selectedNode.Hardness = value, () => selectedNode.Hardness);
+                value => selectedNode.Hardness = value, () => selectedNode.Hardness,
+                value => selectedNode.HardnessValue = value, () => selectedNode.HardnessValue);
 
             AddHapticPropertyTreeView(contentContainer, "Temperature", selectedNode,
-                value => selectedNode.Temperature = value, () => selectedNode.Temperature);
+                value => selectedNode.Temperature = value, () => selectedNode.Temperature,
+                value => selectedNode.TemperatureValue = value, () => selectedNode.TemperatureValue);
         }
     }
 
-    // Helper method to create a TreeView with a text field
+    // Updated method to include sliders with absolute positioning
     private void AddHapticPropertyTreeView(VisualElement container, string propertyName,
-        HapticNode node, Action<string> setter, Func<string> getter)
+        HapticNode node, Action<string> setter, Func<string> getter,
+        Action<float> sliderSetter, Func<float> sliderGetter)
     {
+        // Create a container with relative positioning to hold everything
+        var propertyContainer = new VisualElement();
+        propertyContainer.style.position = Position.Relative;
+
         // Create a Foldout (acts like a TreeView item)
         var foldout = new Foldout();
         foldout.text = propertyName;
@@ -302,8 +313,33 @@ public class HapticsAnnotationWindow : EditorWindow
         // Add the text field to the foldout
         foldout.Add(textField);
 
-        // Add the foldout to the container
-        container.Add(foldout);
+        // Add the foldout to the property container
+        propertyContainer.Add(foldout);
+
+        // Create the slider with absolute positioning
+        var slider = new Slider(0, 1);
+        slider.value = sliderGetter();
+        slider.AddToClassList("haptic-property-slider");
+
+        // Style the slider for absolute positioning
+        slider.style.position = Position.Absolute;
+        slider.style.width = 80;
+        slider.style.right = 10;
+        slider.style.top = 10; // Position it vertically centered in the header
+
+        // Register callback for slider value changes
+        slider.RegisterValueChangedCallback(evt => {
+            sliderSetter(evt.newValue);
+        });
+
+        // Ensure the slider is on top layer to prevent foldout interference
+        slider.pickingMode = PickingMode.Position;
+
+        // Add the slider to the property container
+        propertyContainer.Add(slider);
+
+        // Add the property container to the main container
+        container.Add(propertyContainer);
     }
 
     // Update the AddEngagementLevelLists method to accept a parent container

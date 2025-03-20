@@ -215,7 +215,15 @@ public class HapticsRelationshipGraphView : GraphView
                 texture = hNode.Texture,
                 hardness = hNode.Hardness,
                 temperature = hNode.Temperature,
-                engagementLevel = hNode.EngagementLevel
+                engagementLevel = hNode.EngagementLevel,
+
+                // Add slider values
+                inertiaValue = hNode.InertiaValue,
+                interactivityValue = hNode.InteractivityValue,
+                outlineValue = hNode.OutlineValue,
+                textureValue = hNode.TextureValue,
+                hardnessValue = hNode.HardnessValue,
+                temperatureValue = hNode.TemperatureValue
             });
 
             // Collect tool-mediated annotations
@@ -315,6 +323,14 @@ public class HapticObjectRecord
     public string hardness;
     public string temperature;
     public int engagementLevel;
+
+    // Add slider values
+    public float inertiaValue;
+    public float interactivityValue;
+    public float outlineValue;
+    public float textureValue;
+    public float hardnessValue;
+    public float temperatureValue;
 }
 
 // Record for each connection
@@ -339,6 +355,14 @@ public class HapticNode : Node
     public string Texture { get; set; } = "";
     public string Hardness { get; set; } = "";
     public string Temperature { get; set; } = "";
+
+    // Add float values for sliders (0-1 range)
+    public float InertiaValue { get; set; } = 0.5f;
+    public float InteractivityValue { get; set; } = 0.5f;
+    public float OutlineValue { get; set; } = 0.5f;
+    public float TextureValue { get; set; } = 0.5f;
+    public float HardnessValue { get; set; } = 0.5f;
+    public float TemperatureValue { get; set; } = 0.5f;
 
     private int _engagementLevel = 1; // Default to Medium Engagement (index 1)
 
