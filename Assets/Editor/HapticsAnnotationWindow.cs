@@ -421,7 +421,13 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Create a container for all lists
         var listsContainer = new VisualElement();
-        listsContainer.style.marginTop = 20;
+        listsContainer.style.marginTop = 1;
+
+        // Add a title for the engagement lists section
+        var proxyPriorityTitle = new Label("Proxy Priority");
+        proxyPriorityTitle.AddToClassList("inspector-section-title");
+        proxyPriorityTitle.style.marginBottom = 1;
+        listsContainer.Add(proxyPriorityTitle);
 
         // Add High Engagement list
         AddReorderableList(listsContainer, "High Engagement", _orderedHighEngagementNodes);

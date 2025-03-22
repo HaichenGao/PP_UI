@@ -146,11 +146,11 @@
 .inspector-section-title {
     font-size: 12px;
     -unity-font-style: bold;
-    margin-bottom: 10px;
+    margin-bottom: 1px;
 }
 
 .engagement-foldout {
-    margin-top: 10px;
+    margin-top: 5px;
     margin-bottom: 5px;
 }
 
