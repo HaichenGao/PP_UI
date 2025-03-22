@@ -234,8 +234,8 @@ public class HapticsRelationshipGraphView : GraphView
             {
                 data.relationshipAnnotations.Add(new HapticConnectionRecord
                 {
-                    fromObjectName = kvp.Key,
-                    toObjectName = hNode.AssociatedObject.name,
+                    directContactObject = kvp.Key,
+                    toolMediatedObject = hNode.AssociatedObject.name,
                     annotationText = kvp.Value
                 });
             }
@@ -252,8 +252,8 @@ public class HapticsRelationshipGraphView : GraphView
             {
                 // Check if this relationship is already in the list
                 bool alreadyExists = data.relationshipAnnotations.Any(r =>
-                    r.fromObjectName == outputNode.AssociatedObject.name &&
-                    r.toObjectName == inputNode.AssociatedObject.name);
+                    r.directContactObject == outputNode.AssociatedObject.name &&
+                    r.toolMediatedObject == inputNode.AssociatedObject.name);
 
                 if (!alreadyExists)
                 {
@@ -263,8 +263,8 @@ public class HapticsRelationshipGraphView : GraphView
                     // Add the relationship
                     data.relationshipAnnotations.Add(new HapticConnectionRecord
                     {
-                        fromObjectName = outputNode.AssociatedObject.name,
-                        toObjectName = inputNode.AssociatedObject.name,
+                        directContactObject = outputNode.AssociatedObject.name,
+                        toolMediatedObject = inputNode.AssociatedObject.name,
                         annotationText = annotationText
                     });
                 }
@@ -342,8 +342,8 @@ public class HapticObjectRecord
 [System.Serializable]
 public class HapticConnectionRecord
 {
-    public string fromObjectName;
-    public string toObjectName;
+    public string directContactObject;
+    public string toolMediatedObject;
     public string annotationText;
 }
 
