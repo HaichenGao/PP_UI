@@ -241,31 +241,32 @@ public class HapticsRelationshipGraphView : GraphView
             }
         }
 
-        // We still process edge annotations for backward compatibility
-        foreach (var edge in edges)
+        // Process all edges in the graph to ensure we capture all connections
+        var allEdges = edges.ToList();
+        foreach (var edge in allEdges)
         {
-            // Make sure it's a HapticRelationshipEdge
-            if (edge is HapticRelationshipEdge hapticEdge)
+            var outputNode = edge.output?.node as HapticNode;
+            var inputNode = edge.input?.node as HapticNode;
+
+            if (outputNode != null && inputNode != null)
             {
-                var fromNode = hapticEdge.output.node as HapticNode;
-                var toNode = hapticEdge.input.node as HapticNode;
+                // Check if this relationship is already in the list
+                bool alreadyExists = data.relationshipAnnotations.Any(r =>
+                    r.fromObjectName == outputNode.AssociatedObject.name &&
+                    r.toObjectName == inputNode.AssociatedObject.name);
 
-                if (fromNode != null && toNode != null)
+                if (!alreadyExists)
                 {
-                    // Only add if we don't already have this relationship from the node data
-                    bool alreadyExists = data.relationshipAnnotations.Any(r =>
-                        r.fromObjectName == fromNode.AssociatedObject.name &&
-                        r.toObjectName == toNode.AssociatedObject.name);
+                    // Get the annotation text from the input node for this specific port
+                    string annotationText = inputNode.GetAnnotationTextForPort(edge.input);
 
-                    if (!alreadyExists)
+                    // Add the relationship
+                    data.relationshipAnnotations.Add(new HapticConnectionRecord
                     {
-                        data.relationshipAnnotations.Add(new HapticConnectionRecord
-                        {
-                            fromObjectName = fromNode.AssociatedObject.name,
-                            toObjectName = toNode.AssociatedObject.name,
-                            annotationText = hapticEdge.Annotation
-                        });
-                    }
+                        fromObjectName = outputNode.AssociatedObject.name,
+                        toObjectName = inputNode.AssociatedObject.name,
+                        annotationText = annotationText
+                    });
                 }
             }
         }
@@ -411,6 +412,12 @@ public class HapticNode : Node
         public Port Port;
         public TextField AnnotationField;
         public VisualElement Container;
+    }
+
+    public string GetAnnotationTextForPort(Port port)
+    {
+        var portData = _inputPorts.Find(p => p.Port == port);
+        return portData?.AnnotationField?.value ?? "";
     }
 
     public HapticNode(GameObject go)
