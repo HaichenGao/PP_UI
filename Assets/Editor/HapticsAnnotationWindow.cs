@@ -251,11 +251,16 @@ public class HapticsAnnotationWindow : EditorWindow
         }
         else
         {
-            // Create node-level inspector
-            var nodeNameLabel = new Label(selectedNode.title);
+            // Truncate the title for display in the inspector
+            string displayTitle = TruncateInspectorTitle(selectedNode.title);
+
+            var nodeNameLabel = new Label(displayTitle);
             nodeNameLabel.AddToClassList("inspector-section-title");
             nodeNameLabel.style.fontSize = 20;
             nodeNameLabel.style.marginBottom = 25;
+
+            // Add tooltip to show the full name on hover
+            nodeNameLabel.tooltip = selectedNode.AssociatedObject.name;
 
             // Add to the content container
             contentContainer.Add(nodeNameLabel);
@@ -334,6 +339,18 @@ public class HapticsAnnotationWindow : EditorWindow
                 value => selectedNode.Temperature = value, () => selectedNode.Temperature,
                 value => selectedNode.TemperatureValue = value, () => selectedNode.TemperatureValue);
         }
+    }
+
+    // Helper method to truncate long titles in the inspector
+    private string TruncateInspectorTitle(string originalTitle)
+    {
+        const int maxLength = 20; // Maximum characters to display in inspector
+
+        if (originalTitle.Length <= maxLength)
+            return originalTitle;
+
+        // Truncate and add ellipsis
+        return originalTitle.Substring(0, maxLength - 3) + "...";
     }
 
     private void AddHapticPropertyTreeView(VisualElement container, string propertyName,

@@ -416,7 +416,12 @@ public class HapticNode : Node
     public HapticNode(GameObject go)
     {
         AssociatedObject = go;
-        title = go.name;
+
+        // Truncate long names for display purposes
+        title = TruncateNodeTitle(go.name);
+
+        // Set tooltip to show full name on hover
+        tooltip = go.name;
 
         // Create a container for the preview and radio buttons with proper layout
         var previewAndControlsContainer = new VisualElement();
@@ -497,6 +502,17 @@ public class HapticNode : Node
 
         RefreshExpandedState();
         RefreshPorts();
+    }
+
+    private string TruncateNodeTitle(string originalName)
+    {
+        const int maxLength = 25; // Maximum characters to display
+
+        if (originalName.Length <= maxLength)
+            return originalName;
+
+        // Truncate and add ellipsis
+        return originalName.Substring(0, maxLength - 3) + "...";
     }
 
     private VisualElement CreateRadioButton(string label, int value, bool isSelected)
