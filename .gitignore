@@ -8,6 +8,7 @@ UserSettings/
 ProjectSettings/
 Packages/
 Assets/Scenes/
+Assets/GameObject/
 Assets/Unity.VisualScripting.Generated/
 
 .DS_Store
