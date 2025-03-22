@@ -588,7 +588,7 @@ public class HapticsAnnotationWindow : EditorWindow
         // Create the label for the node name
         var nodeLabel = new Label(node.title);
         nodeLabel.AddToClassList("node-label");
-        nodeLabel.tooltip = node.title; // Add tooltip for long names
+        nodeLabel.tooltip = node.tooltip; // Add tooltip for long names
 
         // Add elements to the item container
         itemContainer.Add(equalsSign);
