@@ -24,6 +24,10 @@ public class HapticsAnnotationWindow : EditorWindow
     private List<HapticNode> _orderedMediumEngagementNodes = new List<HapticNode>();
     private List<HapticNode> _orderedLowEngagementNodes = new List<HapticNode>();
 
+    // Add these properties to the HapticNode class
+    public bool IsDirectContacted { get; set; } = false;
+    public string Description { get; set; } = "";
+
     [MenuItem("HapticsAnnotationWindow/Open _%#T")]
     public static void ShowWindow()
     {
@@ -250,11 +254,60 @@ public class HapticsAnnotationWindow : EditorWindow
             // Create node-level inspector
             var nodeNameLabel = new Label(selectedNode.title);
             nodeNameLabel.AddToClassList("inspector-section-title");
-            nodeNameLabel.style.fontSize = 14;
-            nodeNameLabel.style.marginBottom = 15;
+            nodeNameLabel.style.fontSize = 20;
+            nodeNameLabel.style.marginBottom = 25;
 
             // Add to the content container
             contentContainer.Add(nodeNameLabel);
+
+            // Create a container for the "Is Direct Contacted" checkbox and label
+            var directContactContainer = new VisualElement();
+            directContactContainer.style.flexDirection = FlexDirection.Row;
+            directContactContainer.style.alignItems = Align.Center;
+            directContactContainer.style.marginBottom = 10;
+
+            // Add "Is Direct Contacted" label
+            var directContactLabel = new Label("Is Direct Contacted");
+            directContactLabel.AddToClassList("inspector-field-label");
+            directContactLabel.style.marginRight = 10;
+            directContactLabel.style.marginBottom = 0; // Override default margin
+            directContactLabel.style.flexGrow = 1;
+
+            // Add checkbox
+            var directContactToggle = new Toggle();
+            directContactToggle.value = selectedNode.IsDirectContacted;
+            directContactToggle.RegisterValueChangedCallback(evt => {
+                selectedNode.IsDirectContacted = evt.newValue;
+            });
+
+            // Add label and toggle to the container
+            directContactContainer.Add(directContactLabel);
+            directContactContainer.Add(directContactToggle);
+
+            // Add the container to the main content
+            contentContainer.Add(directContactContainer);
+
+            // Add "Description" text field
+            var descriptionLabel = new Label("Description");
+            descriptionLabel.AddToClassList("inspector-field-label");
+            contentContainer.Add(descriptionLabel);
+
+            var descriptionField = new TextField();
+            descriptionField.multiline = true;
+            descriptionField.value = selectedNode.Description;
+            descriptionField.style.height = 60;
+            descriptionField.style.marginBottom = 15;
+            descriptionField.AddToClassList("inspector-field");
+            descriptionField.RegisterValueChangedCallback(evt => {
+                selectedNode.Description = evt.newValue;
+            });
+            contentContainer.Add(descriptionField);
+
+            // Add a title for the property TreeViews
+            var propertyHighlightTitle = new Label("Property Highlight");
+            propertyHighlightTitle.AddToClassList("inspector-section-title");
+            propertyHighlightTitle.style.marginBottom = 10;
+            contentContainer.Add(propertyHighlightTitle);
 
             // Add the six TreeViews with text fields and sliders
             AddHapticPropertyTreeView(contentContainer, "Inertia", selectedNode,

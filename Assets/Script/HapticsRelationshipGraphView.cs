@@ -216,6 +216,8 @@ public class HapticsRelationshipGraphView : GraphView
                 hardness = hNode.Hardness,
                 temperature = hNode.Temperature,
                 engagementLevel = hNode.EngagementLevel,
+                isDirectContacted = hNode.IsDirectContacted,
+                description = hNode.Description,
 
                 // Add slider values
                 inertiaValue = hNode.InertiaValue,
@@ -323,6 +325,8 @@ public class HapticObjectRecord
     public string hardness;
     public string temperature;
     public int engagementLevel;
+    public bool isDirectContacted;
+    public string description;
 
     // Add slider values
     public float inertiaValue;
@@ -348,6 +352,9 @@ public class HapticNode : Node
     // Add a delegate and event for engagement level changes
     public delegate void EngagementLevelChangedEventHandler(HapticNode node, int newLevel);
     public static event EngagementLevelChangedEventHandler OnEngagementLevelChanged;
+
+    public bool IsDirectContacted { get; set; } = false;
+    public string Description { get; set; } = "";
 
     public string Inertia { get; set; } = "";
     public string Interactivity { get; set; } = "";
