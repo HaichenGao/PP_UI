@@ -319,15 +319,16 @@ public class HapticAnnotationData
 public class HapticObjectRecord
 {
     public string objectName;
+    public bool isDirectContacted;
+    public string description;
+    public int engagementLevel;
+
     public string inertia;
     public string interactivity;
     public string outline;
     public string texture;
     public string hardness;
     public string temperature;
-    public int engagementLevel;
-    public bool isDirectContacted;
-    public string description;
 
     // Add slider values
     public float inertiaValue;
