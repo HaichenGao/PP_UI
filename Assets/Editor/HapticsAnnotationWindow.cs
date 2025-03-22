@@ -224,7 +224,8 @@ public class HapticsAnnotationWindow : EditorWindow
             var titleField = new TextField();
             titleField.value = _graphTitle;
             titleField.AddToClassList("inspector-field");
-            titleField.RegisterValueChangedCallback(evt => {
+            titleField.RegisterValueChangedCallback(evt =>
+            {
                 _graphTitle = evt.newValue;
             });
 
@@ -236,7 +237,8 @@ public class HapticsAnnotationWindow : EditorWindow
             summaryField.value = _graphSummary;
             summaryField.style.height = 80;
             summaryField.AddToClassList("inspector-field");
-            summaryField.RegisterValueChangedCallback(evt => {
+            summaryField.RegisterValueChangedCallback(evt =>
+            {
                 _graphSummary = evt.newValue;
             });
 
@@ -281,7 +283,8 @@ public class HapticsAnnotationWindow : EditorWindow
             // Add checkbox
             var directContactToggle = new Toggle();
             directContactToggle.value = selectedNode.IsDirectContacted;
-            directContactToggle.RegisterValueChangedCallback(evt => {
+            directContactToggle.RegisterValueChangedCallback(evt =>
+            {
                 selectedNode.IsDirectContacted = evt.newValue;
             });
 
@@ -303,7 +306,8 @@ public class HapticsAnnotationWindow : EditorWindow
             descriptionField.style.height = 60;
             descriptionField.style.marginBottom = 15;
             descriptionField.AddToClassList("inspector-field");
-            descriptionField.RegisterValueChangedCallback(evt => {
+            descriptionField.RegisterValueChangedCallback(evt =>
+            {
                 selectedNode.Description = evt.newValue;
             });
             contentContainer.Add(descriptionField);
@@ -373,7 +377,8 @@ public class HapticsAnnotationWindow : EditorWindow
         foldout.AddToClassList("haptic-property-foldout");
 
         // Register callback to save the foldout state when it changes
-        foldout.RegisterValueChangedCallback(evt => {
+        foldout.RegisterValueChangedCallback(evt =>
+        {
             node.PropertyFoldoutStates[propertyName] = evt.newValue;
         });
 
@@ -385,7 +390,8 @@ public class HapticsAnnotationWindow : EditorWindow
         textField.AddToClassList("haptic-property-field");
 
         // Register callback to update the node property when the text changes
-        textField.RegisterValueChangedCallback(evt => {
+        textField.RegisterValueChangedCallback(evt =>
+        {
             setter(evt.newValue);
         });
 
@@ -423,7 +429,8 @@ public class HapticsAnnotationWindow : EditorWindow
         }
 
         // Register callback for slider value changes
-        slider.RegisterValueChangedCallback(evt => {
+        slider.RegisterValueChangedCallback(evt =>
+        {
             // Round to nearest 0.1
             float roundedValue = Mathf.Round(evt.newValue * 10) / 10f;
 
@@ -441,7 +448,8 @@ public class HapticsAnnotationWindow : EditorWindow
         });
 
         // Register callback for value field changes
-        valueField.RegisterValueChangedCallback(evt => {
+        valueField.RegisterValueChangedCallback(evt =>
+        {
             // Clamp the value between 0 and 1
             float clampedValue = Mathf.Clamp(evt.newValue, 0f, 1f);
 
@@ -601,7 +609,8 @@ public class HapticsAnnotationWindow : EditorWindow
         SetupDragAndDrop(itemContainer);
 
         // Add click handler to focus on the node in the graph without selecting it
-        itemContainer.RegisterCallback<ClickEvent>(evt => {
+        itemContainer.RegisterCallback<ClickEvent>(evt =>
+        {
             // Focus on the node in the graph view without selecting it
             _graphView.FrameAndFocusNode(node, false);
 
@@ -623,7 +632,8 @@ public class HapticsAnnotationWindow : EditorWindow
         bool isDragging = false;
 
         // Make the item draggable
-        itemContainer.RegisterCallback<MouseDownEvent>(evt => {
+        itemContainer.RegisterCallback<MouseDownEvent>(evt =>
+        {
             // Start drag operation
             itemContainer.CaptureMouse();
             mouseStartPosition = evt.mousePosition;
@@ -632,7 +642,8 @@ public class HapticsAnnotationWindow : EditorWindow
             evt.StopPropagation();
         });
 
-        itemContainer.RegisterCallback<MouseMoveEvent>(evt => {
+        itemContainer.RegisterCallback<MouseMoveEvent>(evt =>
+        {
             if (itemContainer.HasMouseCapture())
             {
                 // Check if we've moved enough to start dragging
@@ -762,7 +773,8 @@ public class HapticsAnnotationWindow : EditorWindow
             }
         });
 
-        itemContainer.RegisterCallback<MouseUpEvent>(evt => {
+        itemContainer.RegisterCallback<MouseUpEvent>(evt =>
+        {
             if (itemContainer.HasMouseCapture())
             {
                 // End drag operation
@@ -974,6 +986,13 @@ public class HapticsAnnotationWindow : EditorWindow
 
     private void OnExportClicked()
     {
+        // Create the Snapshot directory if it doesn't exist
+        string snapshotDir = "Assets/Snapshot";
+        if (!System.IO.Directory.Exists(snapshotDir))
+        {
+            System.IO.Directory.CreateDirectory(snapshotDir);
+        }
+
         // Collect all annotation data from the graph
         var exportData = _graphView.CollectAnnotationData();
 
@@ -981,11 +1000,74 @@ public class HapticsAnnotationWindow : EditorWindow
         exportData.title = _graphTitle;
         exportData.summary = _graphSummary;
 
-        // Serialize to JSON or do something else
-        string jsonResult = JsonUtility.ToJson(exportData, true);
-        Debug.Log("Exported Haptic Annotation Data:\n" + jsonResult);
+        // Get all nodes from the graph
+        var nodes = _graphView.GetNodes();
 
-        // Optionally, write to a file
-        // File.WriteAllText("path/to/yourfile.json", jsonResult);
+        // Export snapshots for each node
+        foreach (var node in nodes)
+        {
+            // Generate a unique filename based on the object name
+            string safeName = System.Text.RegularExpressions.Regex.Replace(
+                node.AssociatedObject.name,
+                @"[^\w\.-]",
+                "_");
+            string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string filename = $"{safeName}_{timestamp}.png";
+            string fullPath = System.IO.Path.Combine(snapshotDir, filename);
+
+            // Create a preview of the GameObject
+            if (node.AssociatedObject != null)
+            {
+                // Create a temporary editor for the GameObject
+                Editor tempEditor = Editor.CreateEditor(node.AssociatedObject);
+
+                // Create a render texture for the preview
+                RenderTexture rt = new RenderTexture(256, 256, 24);
+                RenderTexture.active = rt;
+
+                // Clear the render texture
+                GL.Clear(true, true, Color.gray);
+
+                // Get the preview texture from the editor
+                Texture2D previewTexture = tempEditor.RenderStaticPreview(
+                    fullPath, null, 256, 256);
+
+                if (previewTexture != null)
+                {
+                    // Save the preview texture
+                    byte[] pngData = previewTexture.EncodeToPNG();
+                    System.IO.File.WriteAllBytes(fullPath, pngData);
+
+                    // Update the snapshot path in the export data
+                    foreach (var nodeAnnotation in exportData.nodeAnnotations)
+                    {
+                        if (nodeAnnotation.objectName == node.AssociatedObject.name)
+                        {
+                            nodeAnnotation.snapshotPath = $"Snapshot/{filename}";
+                            break;
+                        }
+                    }
+                }
+
+                // Clean up
+                RenderTexture.active = null;
+                UnityEngine.Object.DestroyImmediate(tempEditor);
+            }
+        }
+
+        // Serialize to JSON
+        string jsonResult = JsonUtility.ToJson(exportData, true);
+        string jsonPath = System.IO.Path.Combine(snapshotDir, $"haptic_annotation_{System.DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json");
+        System.IO.File.WriteAllText(jsonPath, jsonResult);
+
+        Debug.Log($"Exported Haptic Annotation Data to {jsonPath}");
+
+        // Refresh the asset database to show the new files
+        AssetDatabase.Refresh();
+
+        // Show a success message
+        EditorUtility.DisplayDialog("Export Complete",
+            $"Successfully exported {nodes.Count} node snapshots and annotation data to {snapshotDir} folder.",
+            "OK");
     }
 }

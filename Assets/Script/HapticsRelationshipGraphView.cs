@@ -322,6 +322,7 @@ public class HapticObjectRecord
     public bool isDirectContacted;
     public string description;
     public int engagementLevel;
+    public string snapshotPath;
 
     public string inertia;
     public string interactivity;
@@ -397,6 +398,42 @@ public class HapticNode : Node
                 OnEngagementLevelChanged?.Invoke(this, value);
             }
         }
+    }
+
+    // Add this method to the HapticNode class
+    public Texture2D CaptureNodeSnapshot()
+    {
+        // Create a render texture to capture the preview
+        RenderTexture renderTexture = new RenderTexture(256, 256, 24);
+        RenderTexture.active = renderTexture;
+
+        // Create a texture to store the snapshot
+        Texture2D snapshot = new Texture2D(256, 256, TextureFormat.RGBA32, false);
+
+        // If we have a valid GameObject and editor
+        if (AssociatedObject != null && _gameObjectEditor != null)
+        {
+            // Draw the preview to the render texture
+            _gameObjectEditor.OnPreviewGUI(new Rect(0, 0, 256, 256), GUIStyle.none);
+
+            // Read the pixels from the render texture
+            snapshot.ReadPixels(new Rect(0, 0, 256, 256), 0, 0);
+            snapshot.Apply();
+        }
+        else
+        {
+            // Fill with a default color if no valid preview
+            Color[] pixels = new Color[256 * 256];
+            for (int i = 0; i < pixels.Length; i++)
+                pixels[i] = new Color(0.3f, 0.3f, 0.3f, 1.0f);
+            snapshot.SetPixels(pixels);
+            snapshot.Apply();
+        }
+
+        // Clean up
+        RenderTexture.active = null;
+
+        return snapshot;
     }
 
     public GameObject AssociatedObject { get; private set; }
