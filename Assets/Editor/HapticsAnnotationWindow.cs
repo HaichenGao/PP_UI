@@ -16,8 +16,8 @@ public class HapticsAnnotationWindow : EditorWindow
     private List<ISelectable> _lastSelection = new List<ISelectable>();
 
     // Fields to store graph metadata
-    private string _graphTitle = "Haptic Annotation";
-    private string _graphSummary = "Describe the haptic relationships in this scene.";
+    private string _graphTitle = ""; //“Haptic Annotation”
+    private string _graphSummary = ""; //"Describe the haptic relationships in this scene."
 
     // Add these fields to HapticsAnnotationWindow.cs
     private List<HapticNode> _orderedHighEngagementNodes = new List<HapticNode>();
