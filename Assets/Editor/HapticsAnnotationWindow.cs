@@ -32,7 +32,21 @@ public class HapticsAnnotationWindow : EditorWindow
     public static void ShowWindow()
     {
         var wnd = GetWindow<HapticsAnnotationWindow>();
-        wnd.titleContent = new GUIContent("Haptic Annotation");
+
+        // Try to load the pre-resized icon
+        var iconPath = "Assets/icon16.png"; // Use a pre-resized 16x16 version
+        var icon = AssetDatabase.LoadAssetAtPath<Texture2D>(iconPath);
+
+        if (icon != null)
+        {
+            wnd.titleContent = new GUIContent("Haptic Annotation", icon);
+        }
+        else
+        {
+            wnd.titleContent = new GUIContent("Haptic Annotation");
+            Debug.LogWarning("Could not load icon at path: " + iconPath);
+        }
+
         wnd.Show();
     }
 
@@ -86,11 +100,11 @@ public class HapticsAnnotationWindow : EditorWindow
         }
 
         // Set up button handlers
-        var scanButton = rootVisualElement.Q<Button>("scanSceneButton");
+        //var scanButton = rootVisualElement.Q<Button>("scanSceneButton");
         var exportButton = rootVisualElement.Q<Button>("exportDataButton");
         var inspectorToggleButton = rootVisualElement.Q<Button>("inspectorToggleButton");
 
-        scanButton.clicked += OnScanSceneClicked;
+        //scanButton.clicked += OnScanSceneClicked;
         exportButton.clicked += OnExportClicked;
         inspectorToggleButton.clicked += ToggleInspector;
 
@@ -217,17 +231,17 @@ public class HapticsAnnotationWindow : EditorWindow
         if (selectedNode == null)
         {
             // Create graph-level inspector
-            // (existing code for graph-level inspector)
-            var titleLabel = new Label("Title");
-            titleLabel.AddToClassList("inspector-field-label");
+            // Get the current scene name
+            string sceneName = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            if (string.IsNullOrEmpty(sceneName))
+                sceneName = "Untitled Scene";
 
-            var titleField = new TextField();
-            titleField.value = _graphTitle;
-            titleField.AddToClassList("inspector-field");
-            titleField.RegisterValueChangedCallback(evt =>
-            {
-                _graphTitle = evt.newValue;
-            });
+            // Create a label for the scene name, styled like the node title
+            var sceneNameLabel = new Label(sceneName);
+            sceneNameLabel.AddToClassList("inspector-section-title");
+            sceneNameLabel.style.fontSize = 20;
+            sceneNameLabel.style.marginBottom = 25;
+            contentContainer.Add(sceneNameLabel);
 
             var summaryLabel = new Label("Description");
             summaryLabel.AddToClassList("inspector-field-label");
@@ -243,8 +257,6 @@ public class HapticsAnnotationWindow : EditorWindow
             });
 
             // Add elements to the content container instead of directly to _inspectorContent
-            contentContainer.Add(titleLabel);
-            contentContainer.Add(titleField);
             contentContainer.Add(summaryLabel);
             contentContainer.Add(summaryField);
 
@@ -955,34 +967,34 @@ public class HapticsAnnotationWindow : EditorWindow
         UpdateInspectorBasedOnSelection();
     }
 
-    private void OnScanSceneClicked()
-    {
-        // Example scanning of scene objects
-        GameObject[] sceneObjects = GameObject.FindObjectsOfType<GameObject>();
+    //private void OnScanSceneClicked()
+    //{
+    //    // Example scanning of scene objects
+    //    GameObject[] sceneObjects = GameObject.FindObjectsOfType<GameObject>();
 
-        // Clear current graph
-        _graphView.ClearGraph();
+    //    // Clear current graph
+    //    _graphView.ClearGraph();
 
-        // Add nodes in a basic layout
-        Vector2 position = new Vector2(100, 100);
-        foreach (var go in sceneObjects)
-        {
-            if (!go.activeInHierarchy) continue;
-            // You could filter further, e.g., only "VR Relevance" objects
+    //    // Add nodes in a basic layout
+    //    Vector2 position = new Vector2(100, 100);
+    //    foreach (var go in sceneObjects)
+    //    {
+    //        if (!go.activeInHierarchy) continue;
+    //        // You could filter further, e.g., only "VR Relevance" objects
 
-            _graphView.AddGameObjectNode(go, position);
-            position += new Vector2(250, 0);
+    //        _graphView.AddGameObjectNode(go, position);
+    //        position += new Vector2(250, 0);
 
-            // Start a new row if we've gone too far right
-            if (position.x > 1000)
-            {
-                position = new Vector2(100, position.y + 300);
-            }
-        }
+    //        // Start a new row if we've gone too far right
+    //        if (position.x > 1000)
+    //        {
+    //            position = new Vector2(100, position.y + 300);
+    //        }
+    //    }
 
-        // Update the inspector after scanning
-        UpdateInspectorBasedOnSelection();
-    }
+    //    // Update the inspector after scanning
+    //    UpdateInspectorBasedOnSelection();
+    //}
 
     private void OnExportClicked()
     {
@@ -996,8 +1008,7 @@ public class HapticsAnnotationWindow : EditorWindow
         // Collect all annotation data from the graph
         var exportData = _graphView.CollectAnnotationData();
 
-        // Add title and summary to the export data
-        exportData.title = _graphTitle;
+        // Add summary to the export data
         exportData.summary = _graphSummary;
 
         // Get all nodes from the graph
@@ -1022,7 +1033,7 @@ public class HapticsAnnotationWindow : EditorWindow
                 Editor tempEditor = Editor.CreateEditor(node.AssociatedObject);
 
                 // Create a render texture for the preview
-                RenderTexture rt = new RenderTexture(256, 256, 24);
+                RenderTexture rt = new RenderTexture(512, 512, 24);
                 RenderTexture.active = rt;
 
                 // Clear the render texture
@@ -1030,7 +1041,7 @@ public class HapticsAnnotationWindow : EditorWindow
 
                 // Get the preview texture from the editor
                 Texture2D previewTexture = tempEditor.RenderStaticPreview(
-                    fullPath, null, 256, 256);
+                    fullPath, null, 512, 512);
 
                 if (previewTexture != null)
                 {

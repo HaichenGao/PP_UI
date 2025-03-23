@@ -309,7 +309,6 @@ public class HapticsRelationshipGraphView : GraphView
 [System.Serializable]
 public class HapticAnnotationData
 {
-    public string title;
     public string summary;
     public List<HapticObjectRecord> nodeAnnotations;
     public List<HapticConnectionRecord> relationshipAnnotations;
