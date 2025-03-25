@@ -16,7 +16,7 @@ public class HapticsAnnotationWindow : EditorWindow
     private List<ISelectable> _lastSelection = new List<ISelectable>();
 
     // Fields to store graph metadata
-    private string _graphTitle = ""; //“Haptic Annotation”
+    private string _graphTitle = ""; //?Haptic Annotation?
     private string _graphSummary = ""; //"Describe the haptic relationships in this scene."
 
     // Add these fields to HapticsAnnotationWindow.cs
@@ -27,6 +27,8 @@ public class HapticsAnnotationWindow : EditorWindow
     // Add these properties to the HapticNode class
     public bool IsDirectContacted { get; set; } = false;
     public string Description { get; set; } = "";
+
+    private HapticAnnotationGraph _currentGraph;
 
     [MenuItem("HapticsAnnotationWindow/Open _%#T")]
     public static void ShowWindow()
@@ -1080,5 +1082,370 @@ public class HapticsAnnotationWindow : EditorWindow
         EditorUtility.DisplayDialog("Export Complete",
             $"Successfully exported {nodes.Count} node snapshots and annotation data to {snapshotDir} folder.",
             "OK");
+    }
+
+    public void LoadGraph(HapticAnnotationGraph graph)
+    {
+        if (graph == null) return;
+
+        _currentGraph = graph;
+
+        // Clear the current graph
+        _graphView.ClearGraph();
+
+        // Load the graph summary
+        _graphSummary = graph.Summary;
+
+        // If there's saved graph data, deserialize and restore it
+        if (!string.IsNullOrEmpty(graph.GraphData))
+        {
+            DeserializeGraph(graph.GraphData);
+        }
+
+        // Update the inspector
+        UpdateInspector(null);
+    }
+
+    public void SaveGraph()
+    {
+        if (_currentGraph == null) return;
+
+        // Save the graph summary
+        _currentGraph.Summary = _graphSummary;
+
+        // Serialize the graph data
+        _currentGraph.GraphData = SerializeGraph();
+
+        // Update the referenced objects list
+        UpdateReferencedObjects();
+
+        // Mark the asset as dirty to ensure changes are saved
+        EditorUtility.SetDirty(_currentGraph);
+        AssetDatabase.SaveAssets();
+    }
+
+    private void UpdateReferencedObjects()
+    {
+        if (_currentGraph == null) return;
+
+        // Clear the current list
+        _currentGraph.ReferencedObjects.Clear();
+
+        // Add all objects referenced in the graph
+        var nodes = _graphView.GetNodes();
+        foreach (var node in nodes)
+        {
+            if (node.AssociatedObject != null)
+            {
+                _currentGraph.AddReferencedObject(node.AssociatedObject);
+            }
+        }
+    }
+
+    private string SerializeGraph()
+    {
+        // Create a serializable representation of the graph
+        var graphData = new SerializableGraphData();
+
+        // Collect nodes
+        var nodes = _graphView.GetNodes();
+        foreach (var node in nodes)
+        {
+            var nodeData = new SerializableNodeData
+            {
+                id = node.GetHashCode().ToString(),
+                objectName = node.AssociatedObject.name,
+                objectPath = GetGameObjectPath(node.AssociatedObject),
+                position = new SerializableVector2 { x = node.GetPosition().x, y = node.GetPosition().y },
+                isDirectContacted = node.IsDirectContacted,
+                description = node.Description,
+                engagementLevel = node.EngagementLevel,
+
+                // Haptic properties
+                inertia = node.Inertia,
+                inertiaValue = node.InertiaValue,
+                interactivity = node.Interactivity,
+                interactivityValue = node.InteractivityValue,
+                outline = node.Outline,
+                outlineValue = node.OutlineValue,
+                texture = node.Texture,
+                textureValue = node.TextureValue,
+                hardness = node.Hardness,
+                hardnessValue = node.HardnessValue,
+                temperature = node.Temperature,
+                temperatureValue = node.TemperatureValue
+            };
+
+            graphData.nodes.Add(nodeData);
+        }
+
+        // Collect edges
+        var edges = _graphView.edges.ToList();
+        foreach (var edge in edges)
+        {
+            var outputNode = edge.output?.node as HapticNode;
+            var inputNode = edge.input?.node as HapticNode;
+
+            if (outputNode != null && inputNode != null)
+            {
+                var edgeData = new SerializableEdgeData
+                {
+                    sourceNodeId = outputNode.GetHashCode().ToString(),
+                    targetNodeId = inputNode.GetHashCode().ToString(),
+                    annotationText = inputNode.GetAnnotationTextForPort(edge.input)
+                };
+
+                graphData.edges.Add(edgeData);
+            }
+        }
+
+        // Serialize to JSON
+        return JsonUtility.ToJson(graphData);
+    }
+
+    private void DeserializeGraph(string jsonData)
+    {
+        if (string.IsNullOrEmpty(jsonData)) return;
+
+        try
+        {
+            var graphData = JsonUtility.FromJson<SerializableGraphData>(jsonData);
+
+            // Dictionary to map node IDs to actual nodes
+            var nodeMap = new Dictionary<string, HapticNode>();
+
+            // Create nodes
+            foreach (var nodeData in graphData.nodes)
+            {
+                // Find the GameObject by path or name
+                GameObject obj = FindGameObjectByPath(nodeData.objectPath);
+                if (obj == null)
+                {
+                    // Try to find by name as fallback
+                    obj = GameObject.Find(nodeData.objectName);
+                }
+
+                if (obj != null)
+                {
+                    // Create the node
+                    var position = new Vector2(nodeData.position.x, nodeData.position.y);
+
+                    // Create the node and get the reference
+                    _graphView.AddGameObjectNode(obj, position);
+
+                    // Get the last added node (since we just added it)
+                    var node = _graphView.GetNodes().LastOrDefault();
+
+                    if (node != null)
+                    {
+                        // Set node properties
+                        node.IsDirectContacted = nodeData.isDirectContacted;
+                        node.Description = nodeData.description;
+
+                        // We need to set the engagement level through the UI
+                        // since it has radio buttons that need to be updated
+                        if (node != null)
+                        {
+                            // Call the public method on the node to set engagement level
+                            node.SetEngagementLevel(nodeData.engagementLevel);
+                        }
+
+                        // Set haptic properties
+                        node.Inertia = nodeData.inertia;
+                        node.InertiaValue = nodeData.inertiaValue;
+                        node.Interactivity = nodeData.interactivity;
+                        node.InteractivityValue = nodeData.interactivityValue;
+                        node.Outline = nodeData.outline;
+                        node.OutlineValue = nodeData.outlineValue;
+                        node.Texture = nodeData.texture;
+                        node.TextureValue = nodeData.textureValue;
+                        node.Hardness = nodeData.hardness;
+                        node.HardnessValue = nodeData.hardnessValue;
+                        node.Temperature = nodeData.temperature;
+                        node.TemperatureValue = nodeData.temperatureValue;
+
+                        // Add to the map
+                        nodeMap[nodeData.id] = node;
+                    }
+                }
+            }
+
+            // Create edges
+            foreach (var edgeData in graphData.edges)
+            {
+                if (nodeMap.TryGetValue(edgeData.sourceNodeId, out var sourceNode) &&
+                    nodeMap.TryGetValue(edgeData.targetNodeId, out var targetNode))
+                {
+                    // Connect the nodes
+                    ConnectNodes(sourceNode, targetNode, edgeData.annotationText);
+                }
+            }
+        }
+        catch (Exception e)
+        {
+            Debug.LogError($"Error deserializing graph: {e.Message}");
+        }
+    }
+
+    // Helper method to set node engagement level
+    //public void SetEngagementLevel(int level)
+    //{
+    //    // Validate the level (0-2)
+    //    if (level < 0 || level > 2)
+    //        return;
+
+    //    // Find the radio buttons in the container
+    //    var radioGroupContainer = mainContainer.Q(className: "radio-group-container");
+    //    if (radioGroupContainer != null)
+    //    {
+    //        var radioButtons = radioGroupContainer.Query<Toggle>().ToList();
+
+    //        // If we have the expected radio buttons
+    //        if (radioButtons.Count >= 3)
+    //        {
+    //            // Set the appropriate radio button based on level
+    //            // Assuming the order is: High (0), Medium (1), Low (2)
+    //            int buttonIndex = level; // The index matches our level directly
+
+    //            // Trigger the radio button click
+    //            radioButtons[buttonIndex].SetValueWithoutNotify(true);
+
+    //            // Deselect other radio buttons
+    //            for (int i = 0; i < radioButtons.Count; i++)
+    //            {
+    //                if (i != buttonIndex)
+    //                {
+    //                    radioButtons[i].SetValueWithoutNotify(false);
+    //                }
+    //            }
+    //        }
+    //    }
+
+    //    // Set the engagement level field directly
+    //    _engagementLevel = level;
+    //}
+
+    // Helper method to connect nodes
+    private void ConnectNodes(HapticNode sourceNode, HapticNode targetNode, string annotationText)
+    {
+        // Get all output ports from the source node
+        var outputPorts = sourceNode.outputContainer.Query<Port>().ToList();
+
+        // Get all input ports from the target node
+        var inputPorts = targetNode.inputContainer.Query<Port>().ToList();
+
+        // Find an available output port
+        Port outputPort = null;
+        foreach (var port in outputPorts)
+        {
+            // Use the first available port
+            outputPort = port;
+            break;
+        }
+
+        // Find an available input port
+        Port inputPort = null;
+        foreach (var port in inputPorts)
+        {
+            // Use the first available port that isn't connected
+            if (!port.connected)
+            {
+                inputPort = port;
+                break;
+            }
+        }
+
+        // If we found both ports, connect them
+        if (outputPort != null && inputPort != null)
+        {
+            // Create an edge
+            var edge = new Edge
+            {
+                output = outputPort,
+                input = inputPort
+            };
+
+            // Connect the ports
+            outputPort.Connect(edge);
+            inputPort.Connect(edge);
+
+            // Add the edge to the graph
+            _graphView.AddElement(edge);
+
+            // Set the annotation text
+            targetNode.SetAnnotationTextForPort(inputPort, annotationText);
+        }
+    }
+
+    private string GetGameObjectPath(GameObject obj)
+    {
+        if (obj == null) return string.Empty;
+
+        string path = obj.name;
+        Transform parent = obj.transform.parent;
+
+        while (parent != null)
+        {
+            path = parent.name + "/" + path;
+            parent = parent.parent;
+        }
+
+        return path;
+    }
+
+    private GameObject FindGameObjectByPath(string path)
+    {
+        if (string.IsNullOrEmpty(path)) return null;
+
+        return GameObject.Find(path);
+    }
+
+    // Add these serializable classes for graph data
+    [Serializable]
+    private class SerializableGraphData
+    {
+        public List<SerializableNodeData> nodes = new List<SerializableNodeData>();
+        public List<SerializableEdgeData> edges = new List<SerializableEdgeData>();
+    }
+
+    [Serializable]
+    private class SerializableNodeData
+    {
+        public string id;
+        public string objectName;
+        public string objectPath;
+        public SerializableVector2 position;
+        public bool isDirectContacted;
+        public string description;
+        public int engagementLevel;
+
+        // Haptic properties
+        public string inertia;
+        public float inertiaValue;
+        public string interactivity;
+        public float interactivityValue;
+        public string outline;
+        public float outlineValue;
+        public string texture;
+        public float textureValue;
+        public string hardness;
+        public float hardnessValue;
+        public string temperature;
+        public float temperatureValue;
+    }
+
+    [Serializable]
+    private class SerializableEdgeData
+    {
+        public string sourceNodeId;
+        public string targetNodeId;
+        public string annotationText;
+    }
+
+    [Serializable]
+    private class SerializableVector2
+    {
+        public float x;
+        public float y;
     }
 }

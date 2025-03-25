@@ -45,13 +45,16 @@ public class HapticsRelationshipGraphView : GraphView
         _nodes.Clear();
     }
 
-    public void AddGameObjectNode(GameObject obj, Vector2 dropPosition = default(Vector2))
+    public HapticNode AddGameObjectNode(GameObject obj, Vector2 dropPosition = default(Vector2))
     {
         // Create a new HapticNode (custom node) with a reference to GameObject
         var node = new HapticNode(obj);
-        node.SetPosition(new Rect(dropPosition.x, dropPosition.y, 200, 150)); 
+        node.SetPosition(new Rect(dropPosition.x, dropPosition.y, 200, 150));
         AddElement(node);
         _nodes.Add(node);
+
+        // Return the created node
+        return node;
     }
 
     public override List<Port> GetCompatiblePorts(Port startPort, NodeAdapter nodeAdapter)
@@ -303,6 +306,35 @@ public class HapticsRelationshipGraphView : GraphView
             }
         }
     }
+
+    public void ConnectNodes(HapticNode sourceNode, HapticNode targetNode, string annotationText)
+    {
+        // Find an output port on the source node
+        var outputPort = sourceNode.outputContainer.Q<Port>();
+
+        // Find an input port on the target node
+        var inputPort = targetNode.inputContainer.Q<Port>();
+
+        if (outputPort != null && inputPort != null)
+        {
+            // Create an edge between the ports
+            var edge = new Edge
+            {
+                output = outputPort,
+                input = inputPort
+            };
+
+            // Connect the ports
+            outputPort.Connect(edge);
+            inputPort.Connect(edge);
+
+            // Add the edge to the graph
+            AddElement(edge);
+
+            // Set the annotation text
+            targetNode.SetAnnotationTextForPort(inputPort, annotationText);
+        }
+    }
 }
 
 // Minimal data structure to hold annotation data
@@ -388,7 +420,7 @@ public class HapticNode : Node
     public int EngagementLevel
     {
         get => _engagementLevel;
-        private set
+        set
         {
             if (_engagementLevel != value)
             {
@@ -436,7 +468,7 @@ public class HapticNode : Node
     }
 
     public GameObject AssociatedObject { get; private set; }
-    
+
     private List<Port> _outputPorts = new List<Port>();
     private List<ToolMediatedPortData> _inputPorts = new List<ToolMediatedPortData>();
     private IMGUIContainer _previewContainer;
@@ -859,6 +891,74 @@ public class HapticNode : Node
 
         return annotations;
     }
+
+    public void SetAnnotationTextForPort(Port port, string text)
+    {
+        var portData = _inputPorts.Find(p => p.Port == port);
+        if (portData != null)
+        {
+            portData.AnnotationField.value = text;
+            portData.AnnotationField.SetEnabled(true);
+        }
+    }
+
+    // Add this method to the HapticNode class
+    public void SetEngagementLevel(int level)
+    {
+        // Validate the level (0-2)
+        if (level < 0 || level > 2)
+            return;
+
+        // Find the radio buttons in the radio group container
+        // We need to use the correct path to find the radio buttons
+        var radioContainers = this.Query<VisualElement>(className: "radio-button-container").ToList();
+
+        // If we have the expected radio containers
+        if (radioContainers.Count >= 3)
+        {
+            // Get the toggle from each container
+            var radioButtons = new List<Toggle>();
+            foreach (var container in radioContainers)
+            {
+                var toggle = container.Q<Toggle>();
+                if (toggle != null)
+                {
+                    radioButtons.Add(toggle);
+                }
+            }
+
+            // If we found the radio buttons
+            if (radioButtons.Count >= 3)
+            {
+                // Set the appropriate radio button based on level
+                // The radio buttons are in order: High (2), Medium (1), Low (0)
+                // So we need to convert the level to the correct index
+                int buttonIndex = 2 - level; // Convert level to button index
+
+                // Trigger the radio button click
+                radioButtons[buttonIndex].SetValueWithoutNotify(true);
+
+                // Deselect other radio buttons
+                for (int i = 0; i < radioButtons.Count; i++)
+                {
+                    if (i != buttonIndex)
+                    {
+                        radioButtons[i].SetValueWithoutNotify(false);
+                    }
+                }
+
+                // Set the engagement level field
+                EngagementLevel = level;
+            }
+        }
+        else
+        {
+            // If we can't find the radio buttons, set the property directly
+            // This is a fallback
+            EngagementLevel = level;
+        }
+    }
+
 }
 
 public class HapticRelationshipEdge : Edge
