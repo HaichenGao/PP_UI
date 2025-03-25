@@ -9,11 +9,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 0}
+  m_Script: {fileID: 11500000, guid: 1faeb559a6a91438984b8ac90dbc17af, type: 3}
   m_Name: aaa
-  m_EditorClassIdentifier: Assembly-CSharp::HapticAnnotationGraph
-  graphData: '{"nodes":[{"id":"66686504","objectName":"Pliers","objectPath":"Pliers","position":{"x":47.0,"y":-51.0},"isDirectContacted":false,"description":"","engagementLevel":2,"inertia":"","inertiaValue":0.0,"interactivity":"","interactivityValue":0.0,"outline":"","outlineValue":0.0,"texture":"","textureValue":0.0,"hardness":"","hardnessValue":0.0,"temperature":"","temperatureValue":0.6000000238418579},{"id":"-1042651056","objectName":"Axe","objectPath":"Axe","position":{"x":514.0,"y":7.0},"isDirectContacted":true,"description":"1","engagementLevel":2,"inertia":"","inertiaValue":0.699999988079071,"interactivity":"","interactivityValue":0.0,"outline":"","outlineValue":0.0,"texture":"","textureValue":0.0,"hardness":"","hardnessValue":0.0,"temperature":"","temperatureValue":0.0}],"edges":[{"sourceNodeId":"66686504","targetNodeId":"-1042651056","annotationText":""}]}'
-  referencedObjects:
-  - {fileID: 0}
-  - {fileID: 0}
-  summary: fffff
+  m_EditorClassIdentifier: 
+  graphData: 
+  referencedObjects: []
+  summary: 
