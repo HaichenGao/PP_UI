@@ -26,7 +26,7 @@ public class HapticAnnotationComponentEditor : Editor
         EditorGUILayout.BeginHorizontal();
 
         // Add a "New" button to create a new graph
-        if (GUILayout.Button("New Graph", GUILayout.Height(20)))
+        if (GUILayout.Button("＋ New Graph", GUILayout.Height(20)))
         {
             CreateNewGraph();
         }
@@ -89,10 +89,9 @@ public class HapticAnnotationComponentEditor : Editor
             // Open the Haptic Annotation Window
             HapticsAnnotationWindow.ShowWindow();
 
-            // For now, we'll just open the window
-            // In a future step, we'll add code to load the graph
-            EditorUtility.DisplayDialog("Graph Editor",
-                "The graph editor is open. Loading functionality will be added in the next step.", "OK");
+            // Load the graph into the editor
+            HapticsAnnotationWindow window = EditorWindow.GetWindow<HapticsAnnotationWindow>();
+            window.LoadGraph(component.Graph);
         }
         else
         {

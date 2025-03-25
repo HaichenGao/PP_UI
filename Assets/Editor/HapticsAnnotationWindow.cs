@@ -30,6 +30,8 @@ public class HapticsAnnotationWindow : EditorWindow
 
     private HapticAnnotationGraph _currentGraph;
 
+    private bool _hasUnsavedChanges = false;
+
     [MenuItem("HapticsAnnotationWindow/Open _%#T")]
     public static void ShowWindow()
     {
@@ -106,6 +108,16 @@ public class HapticsAnnotationWindow : EditorWindow
         var exportButton = rootVisualElement.Q<Button>("exportDataButton");
         var inspectorToggleButton = rootVisualElement.Q<Button>("inspectorToggleButton");
 
+        // Add a save button to the toolbar
+        var saveButton = new Button(SaveGraph);
+        saveButton.text = "Save";
+        saveButton.name = "saveGraphButton";
+        saveButton.AddToClassList("toolbar-button");
+
+        // Insert the save button before the export button
+        var toolbar = rootVisualElement.Q<VisualElement>("toolbar");
+        toolbar.Insert(toolbar.IndexOf(exportButton), saveButton);
+
         //scanButton.clicked += OnScanSceneClicked;
         exportButton.clicked += OnExportClicked;
         inspectorToggleButton.clicked += ToggleInspector;
@@ -128,6 +140,9 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Register for graph changes
         HapticsRelationshipGraphView.OnGraphChanged += OnGraphChanged;
+
+        // Register for keyboard events
+        rootVisualElement.RegisterCallback<KeyDownEvent>(OnKeyDown);
     }
 
     private void OnDisable()
@@ -145,10 +160,38 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Unregister from graph changes
         HapticsRelationshipGraphView.OnGraphChanged -= OnGraphChanged;
+
+        // Unregister from keyboard events
+        rootVisualElement.UnregisterCallback<KeyDownEvent>(OnKeyDown);
+
+        // Auto-save when closing the window if there are unsaved changes
+        if (_hasUnsavedChanges && _currentGraph != null)
+        {
+            SaveGraph();
+        }
+    }
+
+    private void OnKeyDown(KeyDownEvent evt)
+    {
+        // Check for Ctrl+S or Cmd+S
+        if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.S)
+        {
+            SaveGraph();
+            evt.StopPropagation();
+        }
     }
 
     private void OnGraphChanged()
     {
+        // Mark that we have unsaved changes
+        _hasUnsavedChanges = true;
+
+        // Update the window title to show unsaved changes
+        if (_currentGraph != null)
+        {
+            titleContent = new GUIContent($"Haptic Annotation* ({_currentGraph.name})", titleContent.image);
+        }
+
         // Update the inspector to reflect the changes in the graph
         UpdateInspector(null);
     }
@@ -1104,6 +1147,12 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Update the inspector
         UpdateInspector(null);
+
+        // Reset the unsaved changes flag
+        _hasUnsavedChanges = false;
+
+        // Update the window title to show the current graph
+        titleContent = new GUIContent($"Haptic Annotation ({graph.name})", titleContent.image);
     }
 
     public void SaveGraph()
@@ -1122,6 +1171,15 @@ public class HapticsAnnotationWindow : EditorWindow
         // Mark the asset as dirty to ensure changes are saved
         EditorUtility.SetDirty(_currentGraph);
         AssetDatabase.SaveAssets();
+
+        // Reset the unsaved changes flag
+        _hasUnsavedChanges = false;
+
+        // Update the window title to remove the asterisk
+        titleContent = new GUIContent($"Haptic Annotation ({_currentGraph.name})", titleContent.image);
+
+        // Show a brief notification
+        ShowNotification(new GUIContent("Graph saved"));
     }
 
     private void UpdateReferencedObjects()
