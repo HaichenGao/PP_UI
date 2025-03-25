@@ -692,7 +692,7 @@ public class HapticNode : Node
 
     }
 
-    private void AddToolMediatedPort()
+    public void AddToolMediatedPort()
     {
         // Create a container for the port and its text field
         var portContainer = new VisualElement();
@@ -956,6 +956,23 @@ public class HapticNode : Node
             // If we can't find the radio buttons, set the property directly
             // This is a fallback
             EngagementLevel = level;
+        }
+    }
+
+    // Add this method to the HapticNode class
+    public int GetPortIndex(Port port)
+    {
+        if (port.direction == Direction.Output)
+        {
+            // Find the index in output ports
+            var outputPorts = outputContainer.Query<Port>().ToList();
+            return outputPorts.IndexOf(port);
+        }
+        else
+        {
+            // Find the index in input ports
+            var inputPorts = inputContainer.Query<Port>().ToList();
+            return inputPorts.IndexOf(port);
         }
     }
 

@@ -1209,6 +1209,10 @@ public class HapticsAnnotationWindow : EditorWindow
         var nodes = _graphView.GetNodes();
         foreach (var node in nodes)
         {
+            // Count the number of output and input ports
+            int outputPortCount = node.outputContainer.Query<Port>().ToList().Count;
+            int inputPortCount = node.inputContainer.Query<Port>().ToList().Count;
+
             var nodeData = new SerializableNodeData
             {
                 id = node.GetHashCode().ToString(),
@@ -1218,6 +1222,8 @@ public class HapticsAnnotationWindow : EditorWindow
                 isDirectContacted = node.IsDirectContacted,
                 description = node.Description,
                 engagementLevel = node.EngagementLevel,
+                outputPortCount = outputPortCount,
+                inputPortCount = inputPortCount,
 
                 // Haptic properties
                 inertia = node.Inertia,
@@ -1246,11 +1252,17 @@ public class HapticsAnnotationWindow : EditorWindow
 
             if (outputNode != null && inputNode != null)
             {
+                // Get the port indices
+                int sourcePortIndex = outputNode.GetPortIndex(edge.output);
+                int targetPortIndex = inputNode.GetPortIndex(edge.input);
+
                 var edgeData = new SerializableEdgeData
                 {
                     sourceNodeId = outputNode.GetHashCode().ToString(),
                     targetNodeId = inputNode.GetHashCode().ToString(),
-                    annotationText = inputNode.GetAnnotationTextForPort(edge.input)
+                    annotationText = inputNode.GetAnnotationTextForPort(edge.input),
+                    sourcePortIndex = sourcePortIndex,
+                    targetPortIndex = targetPortIndex
                 };
 
                 graphData.edges.Add(edgeData);
@@ -1289,24 +1301,14 @@ public class HapticsAnnotationWindow : EditorWindow
                     var position = new Vector2(nodeData.position.x, nodeData.position.y);
 
                     // Create the node and get the reference
-                    _graphView.AddGameObjectNode(obj, position);
-
-                    // Get the last added node (since we just added it)
-                    var node = _graphView.GetNodes().LastOrDefault();
+                    var node = _graphView.AddGameObjectNode(obj, position);
 
                     if (node != null)
                     {
                         // Set node properties
                         node.IsDirectContacted = nodeData.isDirectContacted;
                         node.Description = nodeData.description;
-
-                        // We need to set the engagement level through the UI
-                        // since it has radio buttons that need to be updated
-                        if (node != null)
-                        {
-                            // Call the public method on the node to set engagement level
-                            node.SetEngagementLevel(nodeData.engagementLevel);
-                        }
+                        node.SetEngagementLevel(nodeData.engagementLevel);
 
                         // Set haptic properties
                         node.Inertia = nodeData.inertia;
@@ -1322,20 +1324,35 @@ public class HapticsAnnotationWindow : EditorWindow
                         node.Temperature = nodeData.temperature;
                         node.TemperatureValue = nodeData.temperatureValue;
 
+                        // Ensure the node has the correct number of ports
+                        // Add additional output ports if needed
+                        for (int i = 1; i < nodeData.outputPortCount; i++)
+                        {
+                            node.AddDirectPort();
+                        }
+
+                        // Add additional input ports if needed
+                        for (int i = 1; i < nodeData.inputPortCount; i++)
+                        {
+                            node.AddToolMediatedPort();
+                        }
+
                         // Add to the map
                         nodeMap[nodeData.id] = node;
                     }
                 }
             }
 
-            // Create edges
+            // Create edges with more precise port targeting
             foreach (var edgeData in graphData.edges)
             {
                 if (nodeMap.TryGetValue(edgeData.sourceNodeId, out var sourceNode) &&
                     nodeMap.TryGetValue(edgeData.targetNodeId, out var targetNode))
                 {
-                    // Connect the nodes
-                    ConnectNodes(sourceNode, targetNode, edgeData.annotationText);
+                    // Connect the nodes with specific port indices
+                    ConnectNodesWithPortIndices(sourceNode, targetNode,
+                        edgeData.sourcePortIndex, edgeData.targetPortIndex,
+                        edgeData.annotationText);
                 }
             }
         }
@@ -1458,6 +1475,56 @@ public class HapticsAnnotationWindow : EditorWindow
         return GameObject.Find(path);
     }
 
+    // Add a method to connect nodes with specific port indices
+    private void ConnectNodesWithPortIndices(HapticNode sourceNode, HapticNode targetNode,
+        int sourcePortIndex, int targetPortIndex, string annotationText)
+    {
+        // Get all output ports from the source node
+        var outputPorts = sourceNode.outputContainer.Query<Port>().ToList();
+
+        // Get all input ports from the target node
+        var inputPorts = targetNode.inputContainer.Query<Port>().ToList();
+
+        // Check if the indices are valid
+        if (sourcePortIndex < outputPorts.Count && targetPortIndex < inputPorts.Count)
+        {
+            var outputPort = outputPorts[sourcePortIndex];
+            var inputPort = inputPorts[targetPortIndex];
+
+            // Check if the ports are already connected
+            bool alreadyConnected = false;
+            foreach (var connection in inputPort.connections)
+            {
+                if (connection.output == outputPort)
+                {
+                    alreadyConnected = true;
+                    break;
+                }
+            }
+
+            // Only connect if not already connected
+            if (!alreadyConnected && !inputPort.connected)
+            {
+                // Create an edge
+                var edge = new Edge
+                {
+                    output = outputPort,
+                    input = inputPort
+                };
+
+                // Connect the ports
+                outputPort.Connect(edge);
+                inputPort.Connect(edge);
+
+                // Add the edge to the graph
+                _graphView.AddElement(edge);
+
+                // Set the annotation text
+                targetNode.SetAnnotationTextForPort(inputPort, annotationText);
+            }
+        }
+    }
+
     // Add these serializable classes for graph data
     [Serializable]
     private class SerializableGraphData
@@ -1490,6 +1557,10 @@ public class HapticsAnnotationWindow : EditorWindow
         public float hardnessValue;
         public string temperature;
         public float temperatureValue;
+
+        // Add fields to track port counts
+        public int outputPortCount = 1; // Number of Direct ports
+        public int inputPortCount = 1;  // Number of Mediated ports
     }
 
     [Serializable]
@@ -1498,6 +1569,8 @@ public class HapticsAnnotationWindow : EditorWindow
         public string sourceNodeId;
         public string targetNodeId;
         public string annotationText;
+        public int sourcePortIndex = 0; // Index of the output port
+        public int targetPortIndex = 0; // Index of the input port
     }
 
     [Serializable]
