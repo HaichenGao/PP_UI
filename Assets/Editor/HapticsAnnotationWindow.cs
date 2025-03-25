@@ -1207,15 +1207,23 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Collect nodes
         var nodes = _graphView.GetNodes();
+
+        // Dictionary to map nodes to their IDs
+        var nodeIdMap = new Dictionary<HapticNode, string>();
+
         foreach (var node in nodes)
         {
+            // Generate a unique ID for the node
+            string nodeId = node.GetHashCode().ToString();
+            nodeIdMap[node] = nodeId;
+
             // Count the number of output and input ports
             int outputPortCount = node.outputContainer.Query<Port>().ToList().Count;
             int inputPortCount = node.inputContainer.Query<Port>().ToList().Count;
 
             var nodeData = new SerializableNodeData
             {
-                id = node.GetHashCode().ToString(),
+                id = nodeId,
                 objectName = node.AssociatedObject.name,
                 objectPath = GetGameObjectPath(node.AssociatedObject),
                 position = new SerializableVector2 { x = node.GetPosition().x, y = node.GetPosition().y },
@@ -1241,6 +1249,31 @@ public class HapticsAnnotationWindow : EditorWindow
             };
 
             graphData.nodes.Add(nodeData);
+        }
+
+        // Save the ordered lists
+        foreach (var node in _orderedHighEngagementNodes)
+        {
+            if (nodeIdMap.ContainsKey(node))
+            {
+                graphData.orderedHighEngagementNodeIds.Add(nodeIdMap[node]);
+            }
+        }
+
+        foreach (var node in _orderedMediumEngagementNodes)
+        {
+            if (nodeIdMap.ContainsKey(node))
+            {
+                graphData.orderedMediumEngagementNodeIds.Add(nodeIdMap[node]);
+            }
+        }
+
+        foreach (var node in _orderedLowEngagementNodes)
+        {
+            if (nodeIdMap.ContainsKey(node))
+            {
+                graphData.orderedLowEngagementNodeIds.Add(nodeIdMap[node]);
+            }
         }
 
         // Collect edges
@@ -1353,6 +1386,68 @@ public class HapticsAnnotationWindow : EditorWindow
                     ConnectNodesWithPortIndices(sourceNode, targetNode,
                         edgeData.sourcePortIndex, edgeData.targetPortIndex,
                         edgeData.annotationText);
+                }
+            }
+
+            // Restore the ordered lists
+            _orderedHighEngagementNodes.Clear();
+            _orderedMediumEngagementNodes.Clear();
+            _orderedLowEngagementNodes.Clear();
+
+            // Restore high engagement nodes order
+            foreach (var nodeId in graphData.orderedHighEngagementNodeIds)
+            {
+                if (nodeMap.TryGetValue(nodeId, out var node) && node.EngagementLevel == 2)
+                {
+                    _orderedHighEngagementNodes.Add(node);
+                }
+            }
+
+            // Restore medium engagement nodes order
+            foreach (var nodeId in graphData.orderedMediumEngagementNodeIds)
+            {
+                if (nodeMap.TryGetValue(nodeId, out var node) && node.EngagementLevel == 1)
+                {
+                    _orderedMediumEngagementNodes.Add(node);
+                }
+            }
+
+            // Restore low engagement nodes order
+            foreach (var nodeId in graphData.orderedLowEngagementNodeIds)
+            {
+                if (nodeMap.TryGetValue(nodeId, out var node) && node.EngagementLevel == 0)
+                {
+                    _orderedLowEngagementNodes.Add(node);
+                }
+            }
+
+            // Add any nodes that weren't in the ordered lists
+            var allNodes = _graphView.GetNodes();
+
+            // Add missing high engagement nodes
+            foreach (var node in allNodes.Where(n => n.EngagementLevel == 2))
+            {
+                if (!_orderedHighEngagementNodes.Contains(node))
+                {
+                    _orderedHighEngagementNodes.Add(node);
+                }
+            }
+
+            // Add missing medium engagement nodes
+            foreach (var node in allNodes.Where(n => n.EngagementLevel == 1))
+            {
+                if (!_orderedMediumEngagementNodes.Contains(node))
+                {
+                    _orderedMediumEngagementNodes.Add(node);
+                }
+            }
+
+            // Add missing low engagement nodes
+            foreach (var node in allNodes.Where(n => n.EngagementLevel == 0))
+            {
+                if (!_orderedLowEngagementNodes.Contains(node))
+                {
+                    _orderedLowEngagementNodes.Add(node);
                 }
             }
         }
@@ -1531,6 +1626,11 @@ public class HapticsAnnotationWindow : EditorWindow
     {
         public List<SerializableNodeData> nodes = new List<SerializableNodeData>();
         public List<SerializableEdgeData> edges = new List<SerializableEdgeData>();
+
+        // Add ordered lists for engagement levels
+        public List<string> orderedHighEngagementNodeIds = new List<string>();
+        public List<string> orderedMediumEngagementNodeIds = new List<string>();
+        public List<string> orderedLowEngagementNodeIds = new List<string>();
     }
 
     [Serializable]
