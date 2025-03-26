@@ -339,3 +339,36 @@
     border-width: 1px;
     border-color: rgba(20, 20, 20, 0.8);
 }
+
+/* Add these styles to VRHapticEditor.uss */
+#selection-rectangle {
+    position: absolute;
+    background-color: rgba(51, 102, 204, 0.1);
+    border-width: 1px;
+    border-color: rgba(51, 102, 204, 0.8);
+}
+
+.node-group {
+    background-color: rgba(30, 255, 30, 0.5);
+    border-width: 1px;
+    border-color: rgba(180, 180, 180, 0.7);
+    border-radius: 5px;
+}
+
+.node-group-header {
+    background-color: rgba(30, 255, 30, 0.8);
+    height: 24px;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    padding: 0 8px;
+    flex-direction: row;
+    align-items: center;
+}
+
+.node-group-title {
+    flex-grow: 1;
+    color: rgba(220, 220, 220, 0.9);
+    -unity-font-style: bold;
+    font-size: 12px;
+    margin-left: 4px;
+}

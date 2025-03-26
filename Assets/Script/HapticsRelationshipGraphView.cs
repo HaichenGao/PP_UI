@@ -17,6 +17,11 @@ public class HapticsRelationshipGraphView : GraphView
     public delegate void GraphChangedEventHandler();
     public static event GraphChangedEventHandler OnGraphChanged;
 
+    private bool _isGroupSelectionActive = false;
+    private Vector2 _groupSelectionStartPosition;
+    private VisualElement _selectionRectangle;
+    private List<HapticNodeGroup> _nodeGroups = new List<HapticNodeGroup>();
+
     public HapticsRelationshipGraphView()
     {
         style.flexGrow = 1;
@@ -26,6 +31,30 @@ public class HapticsRelationshipGraphView : GraphView
         this.AddManipulator(new ContentDragger());
         this.AddManipulator(new SelectionDragger());
         this.AddManipulator(new RectangleSelector());
+
+        // Update the selection rectangle styling in the constructor
+        _selectionRectangle = new VisualElement();
+        _selectionRectangle.name = "selection-rectangle";
+        _selectionRectangle.style.position = Position.Absolute;
+        _selectionRectangle.style.backgroundColor = new Color(0.2f, 0.4f, 0.9f, 0.1f);
+        _selectionRectangle.style.borderLeftWidth =
+        _selectionRectangle.style.borderRightWidth =
+        _selectionRectangle.style.borderTopWidth =
+        _selectionRectangle.style.borderBottomWidth = 1;
+        _selectionRectangle.style.borderLeftColor =
+        _selectionRectangle.style.borderRightColor =
+        _selectionRectangle.style.borderTopColor =
+        _selectionRectangle.style.borderBottomColor = new Color(0.2f, 0.4f, 0.9f, 0.8f);
+        _selectionRectangle.visible = true;
+        Add(_selectionRectangle);
+
+        // Register for mouse events
+        RegisterCallback<MouseDownEvent>(OnMouseDown);
+        RegisterCallback<MouseMoveEvent>(OnMouseMove);
+        RegisterCallback<MouseUpEvent>(OnMouseUp);
+
+        // Add a context menu for creating groups
+        RegisterCallback<ContextualMenuPopulateEvent>(BuildContextualMenu);
 
         // Create and add the grid background
         var grid = new GridBackground();
@@ -38,6 +67,184 @@ public class HapticsRelationshipGraphView : GraphView
         // Register for graph changes to handle connections
         graphViewChanged = OnGraphViewChanged;
     }
+
+    // Update the OnMouseDown method to handle platform differences
+    private void OnMouseDown(MouseDownEvent evt)
+    {
+        // Check if Ctrl/Cmd is pressed and it's a left click
+        if (evt.shiftKey && evt.button == 0)
+        {
+            // Start group selection
+            _isGroupSelectionActive = true;
+            _groupSelectionStartPosition = evt.localMousePosition;
+
+            // Show and position the selection rectangle
+            _selectionRectangle.visible = true;
+            _selectionRectangle.style.left = _groupSelectionStartPosition.x;
+            _selectionRectangle.style.top = _groupSelectionStartPosition.y;
+            _selectionRectangle.style.width = _selectionRectangle.style.height = 0;
+
+            // Prevent other handlers from processing this event
+            evt.StopPropagation();
+        }
+    }
+
+    // Update the OnMouseMove method to ensure the selection rectangle is visible
+    private void OnMouseMove(MouseMoveEvent evt)
+    {
+        if (_isGroupSelectionActive)
+        {
+            // Calculate rectangle dimensions
+            float left = Mathf.Min(_groupSelectionStartPosition.x, evt.localMousePosition.x);
+            float top = Mathf.Min(_groupSelectionStartPosition.y, evt.localMousePosition.y);
+            float width = Mathf.Abs(evt.localMousePosition.x - _groupSelectionStartPosition.x);
+            float height = Mathf.Abs(evt.localMousePosition.y - _groupSelectionStartPosition.y);
+
+            // Update selection rectangle
+            _selectionRectangle.style.left = left;
+            _selectionRectangle.style.top = top;
+            _selectionRectangle.style.width = width;
+            _selectionRectangle.style.height = height;
+
+            // Ensure the selection rectangle is visible
+            _selectionRectangle.visible = true;
+
+            // Prevent other handlers from processing this event
+            evt.StopPropagation();
+        }
+    }
+
+    // Update the OnMouseUp method to ensure proper cleanup
+    private void OnMouseUp(MouseUpEvent evt)
+    {
+        if (_isGroupSelectionActive)
+        {
+            // End group selection
+            _isGroupSelectionActive = false;
+
+            // Calculate final rectangle
+            Rect selectionRect = new Rect(
+                _selectionRectangle.style.left.value.value,
+                _selectionRectangle.style.top.value.value,
+                _selectionRectangle.style.width.value.value,
+                _selectionRectangle.style.height.value.value
+            );
+
+            // Hide the selection rectangle
+            _selectionRectangle.visible = false;
+
+            // Only create a group if the selection has some size
+            if (selectionRect.width > 10 && selectionRect.height > 10)
+            {
+                // Find all nodes within the selection rectangle
+                var selectedNodes = new List<HapticNode>();
+                foreach (var node in _nodes)
+                {
+                    Rect nodeRect = node.GetPosition();
+                    // Check if the node is at least partially inside the selection rectangle
+                    if (nodeRect.Overlaps(selectionRect))
+                    {
+                        selectedNodes.Add(node);
+                    }
+                }
+
+                // If we have selected nodes, create a group
+                if (selectedNodes.Count > 0)
+                {
+                    CreateNodeGroup(selectedNodes, selectionRect);
+                }
+            }
+
+            // Prevent other handlers from processing this event
+            evt.StopPropagation();
+        }
+    }
+
+    // Add a context menu option to create a group from the current selection
+    private void BuildContextualMenu(ContextualMenuPopulateEvent evt)
+    {
+        // Only add the menu item if we have nodes selected
+        var selectedNodes = selection.OfType<HapticNode>().ToList();
+        if (selectedNodes.Count > 0)
+        {
+            evt.menu.AppendAction("Create Group", (a) => CreateGroupFromSelection());
+        }
+    }
+
+    // Create a group from the current selection
+    private void CreateGroupFromSelection()
+    {
+        var selectedNodes = selection.OfType<HapticNode>().ToList();
+        if (selectedNodes.Count > 0)
+        {
+            // Calculate the bounding rectangle of all selected nodes
+            Rect boundingRect = CalculateBoundingRect(selectedNodes);
+
+            // Add some padding
+            boundingRect.x -= 20;
+            boundingRect.y -= 40; // Extra space for the header
+            boundingRect.width += 40;
+            boundingRect.height += 60;
+
+            // Create the group
+            CreateNodeGroup(selectedNodes, boundingRect);
+        }
+    }
+
+    // Calculate the bounding rectangle for a set of nodes
+    private Rect CalculateBoundingRect(List<HapticNode> nodes)
+    {
+        if (nodes.Count == 0)
+            return Rect.zero;
+
+        float minX = float.MaxValue;
+        float minY = float.MaxValue;
+        float maxX = float.MinValue;
+        float maxY = float.MinValue;
+
+        foreach (var node in nodes)
+        {
+            Rect nodeRect = node.GetPosition();
+            minX = Mathf.Min(minX, nodeRect.x);
+            minY = Mathf.Min(minY, nodeRect.y);
+            maxX = Mathf.Max(maxX, nodeRect.x + nodeRect.width);
+            maxY = Mathf.Max(maxY, nodeRect.y + nodeRect.height);
+        }
+
+        return new Rect(minX, minY, maxX - minX, maxY - minY);
+    }
+
+    // Create a node group with the given nodes and rectangle
+    private void CreateNodeGroup(List<HapticNode> nodes, Rect rect)
+    {
+        // Create a new group
+        var group = new HapticNodeGroup(rect, nodes);
+
+        // Add the group to the graph
+        AddElement(group);
+
+        // Add to our list of groups
+        _nodeGroups.Add(group);
+
+        // Make sure the group is behind the nodes
+        group.SendToBack();
+    }
+
+    // Override DeleteElements to handle group deletion
+    //public override void DeleteElements(IEnumerable<GraphElement> elements)
+    //{
+    //    // Find any groups that need to be removed
+    //    var groupsToRemove = elements.OfType<HapticNodeGroup>().ToList();
+
+    //    // Remove them from our tracking list
+    //    foreach (var group in groupsToRemove)
+    //    {
+    //        _nodeGroups.Remove(group);
+    //    }
+
+    //    // Call the base implementation to actually delete the elements
+    //    base.DeleteElements(elements);
+    //}
 
     public void ClearGraph()
     {
@@ -100,6 +307,7 @@ public class HapticsRelationshipGraphView : GraphView
     }
 
     // Intercept edge creation so we can instantiate HapticRelationshipEdge
+    // Modify the existing OnGraphViewChanged method to also handle groups
     private GraphViewChange OnGraphViewChanged(GraphViewChange change)
     {
         bool graphChanged = false;
@@ -125,7 +333,7 @@ public class HapticsRelationshipGraphView : GraphView
             }
         }
 
-        // Handle element removals (nodes and edges)
+        // Handle element removals (nodes, edges, and groups)
         if (change.elementsToRemove != null && change.elementsToRemove.Count > 0)
         {
             graphChanged = true;
@@ -182,6 +390,11 @@ public class HapticsRelationshipGraphView : GraphView
                     {
                         outputNode.OnPortDisconnected(edge.output);
                     }
+                }
+                else if (element is HapticNodeGroup group)
+                {
+                    // Remove the group from our tracking list
+                    _nodeGroups.Remove(group);
                 }
             }
 
@@ -1014,4 +1227,119 @@ public class HapticRelationshipEdge : Edge
         Add(annotationContainer);
     }
 
+}
+
+// Add this class to HapticsRelationshipGraphView.cs
+public class HapticNodeGroup : GraphElement
+{
+    private List<HapticNode> _nodes;
+    private VisualElement _header;
+    private TextField _titleField;
+    private string _title = "Node Group";
+
+    public HapticNodeGroup(Rect rect, List<HapticNode> nodes)
+    {
+        _nodes = new List<HapticNode>(nodes);
+
+        // Set up the group element
+        this.SetPosition(rect);
+        this.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
+        this.style.borderLeftWidth = this.style.borderRightWidth =
+        this.style.borderTopWidth = this.style.borderBottomWidth = 1;
+        this.style.borderLeftColor = this.style.borderRightColor =
+        this.style.borderTopColor = this.style.borderBottomColor = new Color(0.7f, 0.7f, 0.7f, 0.7f);
+
+        // Create the header
+        _header = new VisualElement();
+        _header.style.height = 24;
+        _header.style.backgroundColor = new Color(0.1f, 0.1f, 0.1f, 0.8f);
+        _header.style.flexDirection = FlexDirection.Row;
+        _header.style.alignItems = Align.Center;
+        _header.style.paddingLeft = 8;
+        _header.style.paddingRight = 8;
+
+        // Add a title field
+        _titleField = new TextField();
+        _titleField.value = _title;
+        _titleField.style.flexGrow = 1;
+        _titleField.RegisterValueChangedCallback(evt => _title = evt.newValue);
+
+        // Add the title field to the header
+        _header.Add(_titleField);
+
+        // Add the header to the group
+        Add(_header);
+
+        // Make the group selectable
+        capabilities |= Capabilities.Selectable | Capabilities.Movable | Capabilities.Deletable;
+
+        // Register for position change events to move the contained nodes
+        RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+    }
+
+    // Track the initial positions of nodes relative to the group
+    private Dictionary<HapticNode, Vector2> _nodeOffsets = new Dictionary<HapticNode, Vector2>();
+    private Vector2 _lastPosition;
+
+    private void OnGeometryChanged(GeometryChangedEvent evt)
+    {
+        // If this is the first time, initialize the node offsets
+        if (_nodeOffsets.Count == 0)
+        {
+            Rect groupRect = GetPosition();
+            _lastPosition = new Vector2(groupRect.x, groupRect.y);
+
+            foreach (var node in _nodes)
+            {
+                Rect nodeRect = node.GetPosition();
+                _nodeOffsets[node] = new Vector2(
+                    nodeRect.x - groupRect.x,
+                    nodeRect.y - groupRect.y
+                );
+            }
+        }
+        else
+        {
+            // Calculate how much the group has moved
+            Rect groupRect = GetPosition();
+            Vector2 newPosition = new Vector2(groupRect.x, groupRect.y);
+            Vector2 delta = newPosition - _lastPosition;
+
+            // Only move nodes if the group actually moved
+            if (delta.sqrMagnitude > 0.001f)
+            {
+                // Move all nodes by the same delta
+                foreach (var node in _nodes)
+                {
+                    Rect nodeRect = node.GetPosition();
+                    nodeRect.x += delta.x;
+                    nodeRect.y += delta.y;
+                    node.SetPosition(nodeRect);
+                }
+
+                _lastPosition = newPosition;
+            }
+        }
+    }
+
+    // Override the hit test to allow clicking through the body (but not the header)
+    public override bool ContainsPoint(Vector2 localPoint)
+    {
+        // Always hit test the header
+        if (localPoint.y <= _header.layout.height)
+            return true;
+
+        // For the body, only return true if we're near the border
+        float borderWidth = 5f;
+        Rect rect = GetPosition();
+        rect.x = rect.y = 0; // Convert to local space
+
+        bool nearBorder =
+            localPoint.x <= borderWidth ||
+            localPoint.x >= rect.width - borderWidth ||
+            localPoint.y <= borderWidth ||
+            localPoint.y >= rect.height - borderWidth;
+
+        return nearBorder;
+    }
 }
