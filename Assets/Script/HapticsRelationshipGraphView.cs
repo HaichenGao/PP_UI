@@ -82,52 +82,6 @@ public class HapticsRelationshipGraphView : GraphView
         }
     }
 
-    // Update the BuildContextualMenu method to add scope-related actions
-    // Update the BuildContextualMenu method in HapticsRelationshipGraphView
-    public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
-    {
-        base.BuildContextualMenu(evt);
-
-        // Add custom menu items for nodes
-        if (evt.target is HapticNode)
-        {
-            evt.menu.AppendSeparator();
-            evt.menu.AppendAction("Add to New Group", (a) => {
-                var selectedNodes = selection.OfType<HapticNode>().ToList();
-                if (selectedNodes.Count > 0)
-                {
-                    CreateScopeFromSelection();
-                }
-            });
-        }
-
-        // Add custom menu items for scopes
-        if (evt.target is HapticScope scope)
-        {
-            evt.menu.AppendSeparator();
-
-            evt.menu.AppendAction("Set Color/Blue", (a) => {
-                scope.ScopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
-            });
-
-            evt.menu.AppendAction("Set Color/Green", (a) => {
-                scope.ScopeColor = new Color(0.2f, 0.4f, 0.2f, 0.3f);
-            });
-
-            evt.menu.AppendAction("Set Color/Red", (a) => {
-                scope.ScopeColor = new Color(0.4f, 0.2f, 0.2f, 0.3f);
-            });
-
-            evt.menu.AppendAction("Set Color/Purple", (a) => {
-                scope.ScopeColor = new Color(0.4f, 0.2f, 0.4f, 0.3f);
-            });
-
-            evt.menu.AppendAction("Set Color/Orange", (a) => {
-                scope.ScopeColor = new Color(0.5f, 0.3f, 0.1f, 0.3f);
-            });
-        }
-    }
-
     public void ClearGraph()
     {
         DeleteElements(graphElements);
@@ -521,43 +475,66 @@ public class HapticsRelationshipGraphView : GraphView
         return _scopes;
     }
 
-    // Update the CreateContextMenu method in HapticsRelationshipGraphView
-    // Update the CreateContextMenu method in HapticsRelationshipGraphView
+    // This handles right-clicks on empty space
     private ContextualMenuManipulator CreateContextMenu()
     {
         return new ContextualMenuManipulator(
             menuEvent => {
-            // Get the mouse position in the graph view
+            // Get the mouse position
             Vector2 localMousePosition = contentViewContainer.WorldToLocal(menuEvent.mousePosition);
 
-            // Add menu items
-            menuEvent.menu.AppendAction("Create Group",
+            // Add menu items for creating groups
+            menuEvent.menu.AppendAction("Create Empty Group",
                     action => CreateScope(new Rect(localMousePosition.x, localMousePosition.y, 200, 150)),
                     DropdownMenuAction.AlwaysEnabled);
 
-                menuEvent.menu.AppendAction("Create Group From Selection",
-                    action => CreateScopeFromSelection(),
-                    selection.OfType<HapticNode>().Any() ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
-
-            // Add a separator
-            menuEvent.menu.AppendSeparator();
-
-            // Add an option to add selected nodes to an existing scope
+            // Only show "Create Group From Selection" if nodes are selected
             if (selection.OfType<HapticNode>().Any())
                 {
-                    var scopes = graphElements.OfType<HapticScope>().ToList();
-                    if (scopes.Count > 0)
+                    menuEvent.menu.AppendAction("Create Group From Selection",
+                        action => CreateScopeFromSelection(),
+                        DropdownMenuAction.Status.Normal);
+
+                // Add "Remove From Group" option if any selected node is in a group
+                bool anyNodeInGroup = selection.OfType<HapticNode>().Any(node =>
+                        graphElements.OfType<HapticScope>().Any(s =>
+                            s.containedElements.Contains(node)));
+
+                    if (anyNodeInGroup)
+                    {
+                        menuEvent.menu.AppendAction("Remove From Group",
+                            action => {
+                                var selectedNodes = selection.OfType<HapticNode>().ToList();
+                                var availableScopes = graphElements.OfType<HapticScope>().ToList();
+
+                                foreach (var node in selectedNodes)
+                                {
+                                    foreach (var s in availableScopes)
+                                    {
+                                        if (s.containedElements.Contains(node))
+                                        {
+                                            s.RemoveElement(node);
+                                        }
+                                    }
+                                }
+                            },
+                            DropdownMenuAction.Status.Normal);
+                    }
+
+                // Add options to add to existing groups
+                var availableGroups = graphElements.OfType<HapticScope>().ToList();
+                    if (availableGroups.Count > 0)
                     {
                     // Add each scope as a separate menu item
-                    foreach (var scope in scopes)
+                    foreach (var existingScope in availableGroups)
                         {
-                            menuEvent.menu.AppendAction($"Add to Group: {scope.title}", // Use title instead of ScopeTitle
+                            menuEvent.menu.AppendAction($"Add to Group: {existingScope.title}",
                                 action => {
                                     foreach (var element in selection)
                                     {
                                         if (element is HapticNode node)
                                         {
-                                            scope.AddElement(node);
+                                            existingScope.AddElement(node);
                                         }
                                     }
                                 },
@@ -567,6 +544,13 @@ public class HapticsRelationshipGraphView : GraphView
                 }
             }
         );
+    }
+
+    // This is now simpler since groups handle their own context menus
+    public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
+    {
+        base.BuildContextualMenu(evt);
+
     }
 
 
@@ -1251,46 +1235,61 @@ public class HapticRelationshipEdge : Edge
 
 }
 
-// Update the HapticScope class in HapticsRelationshipGraphView.cs
-// Update the HapticScope class in HapticsRelationshipGraphView.cs
-// Update the HapticScope class in HapticsRelationshipGraphView.cs
-// Update the HapticScope class in HapticsRelationshipGraphView.cs
-// Update the HapticScope class in HapticsRelationshipGraphView.cs
 public class HapticScope : Group
 {
-    private Color _scopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
-
-    public Color ScopeColor
-    {
-        get => _scopeColor;
-        set
-        {
-            _scopeColor = value;
-            style.backgroundColor = _scopeColor;
-        }
-    }
+    public Color ScopeColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.3f);
 
     public HapticScope()
     {
-        // Set up the basic appearance
-        style.backgroundColor = _scopeColor;
-        style.borderBottomWidth = style.borderTopWidth = style.borderLeftWidth = style.borderRightWidth = 1;
-        style.borderBottomColor = style.borderTopColor = style.borderLeftColor = style.borderRightColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
-        style.paddingTop = 20; // Make room for the title
-        style.paddingLeft = style.paddingRight = style.paddingBottom = 10;
-        style.borderTopLeftRadius = style.borderTopRightRadius = style.borderBottomLeftRadius = style.borderBottomRightRadius = 5;
+        // Existing initialization code...
 
-        // Set initial title
-        title = "Group";
-
-        // Enable auto-resizing
-        this.capabilities |= Capabilities.Movable | Capabilities.Resizable | Capabilities.Selectable;
+        // Add a context menu manipulator specifically for this group
+        this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
     }
 
-    // Method to start editing the title (Group already has built-in title editing)
-    public void StartEditingTitle()
+    // Add this method to handle the context menu for the group
+    private void BuildContextualMenu(ContextualMenuPopulateEvent evt)
     {
-        // The Group class already handles title editing when double-clicked
-        // This method is kept for compatibility with existing code
+        // Add "Ungroup All" option
+        evt.menu.AppendAction("Ungroup All", (a) => {
+            // Get all elements in the scope
+            var elementsToRemove = containedElements.ToList();
+
+            // Remove all elements from the scope
+            foreach (var element in elementsToRemove)
+            {
+                RemoveElement(element);
+            }
+        });
+
+        evt.menu.AppendSeparator();
+
+        // Color options
+        evt.menu.AppendAction("Set Color/Blue", (a) => {
+            ScopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
+            this.style.backgroundColor = ScopeColor;
+        });
+
+        evt.menu.AppendAction("Set Color/Green", (a) => {
+            ScopeColor = new Color(0.2f, 0.4f, 0.2f, 0.3f);
+            this.style.backgroundColor = ScopeColor;
+        });
+
+        evt.menu.AppendAction("Set Color/Red", (a) => {
+            ScopeColor = new Color(0.4f, 0.2f, 0.2f, 0.3f);
+            this.style.backgroundColor = ScopeColor;
+        });
+
+        evt.menu.AppendAction("Set Color/Purple", (a) => {
+            ScopeColor = new Color(0.4f, 0.2f, 0.4f, 0.3f);
+            this.style.backgroundColor = ScopeColor;
+        });
+
+        evt.menu.AppendAction("Set Color/Orange", (a) => {
+            ScopeColor = new Color(0.5f, 0.3f, 0.1f, 0.3f);
+            this.style.backgroundColor = ScopeColor;
+        });
     }
+
+    // Rest of your existing HapticScope code...
 }
