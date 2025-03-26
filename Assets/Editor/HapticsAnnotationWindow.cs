@@ -1302,6 +1302,36 @@ public class HapticsAnnotationWindow : EditorWindow
             }
         }
 
+        // Serialize scopes
+        var scopes = _graphView.GetScopes();
+        foreach (var scope in scopes)
+        {
+            var scopeData = new SerializableScopeData
+            {
+                title = scope.ScopeTitle,
+                position = new SerializableVector2 { x = scope.GetPosition().x, y = scope.GetPosition().y },
+                size = new SerializableVector2 { x = scope.GetPosition().width, y = scope.GetPosition().height },
+                color = new SerializableColor
+                {
+                    r = scope.ScopeColor.r,
+                    g = scope.ScopeColor.g,
+                    b = scope.ScopeColor.b,
+                    a = scope.ScopeColor.a
+                }
+            };
+
+            // Store the IDs of nodes contained in this scope
+            foreach (var element in scope.containedElements)
+            {
+                if (element is HapticNode node && nodeIdMap.ContainsKey(node))
+                {
+                    scopeData.containedNodeIds.Add(nodeIdMap[node]);
+                }
+            }
+
+            graphData.scopes.Add(scopeData);
+        }
+
         // Serialize to JSON
         return JsonUtility.ToJson(graphData);
     }
@@ -1393,6 +1423,37 @@ public class HapticsAnnotationWindow : EditorWindow
             _orderedHighEngagementNodes.Clear();
             _orderedMediumEngagementNodes.Clear();
             _orderedLowEngagementNodes.Clear();
+
+            // Restore scopes
+            foreach (var scopeData in graphData.scopes)
+            {
+                // Create a new scope
+                var position = new Rect(
+                    scopeData.position.x,
+                    scopeData.position.y,
+                    scopeData.size.x,
+                    scopeData.size.y
+                );
+
+                var scope = _graphView.CreateScope(position, scopeData.title);
+
+                // Set the color
+                scope.ScopeColor = new Color(
+                    scopeData.color.r,
+                    scopeData.color.g,
+                    scopeData.color.b,
+                    scopeData.color.a
+                );
+
+                // Add the nodes to the scope
+                foreach (var nodeId in scopeData.containedNodeIds)
+                {
+                    if (nodeMap.TryGetValue(nodeId, out var node))
+                    {
+                        scope.AddElement(node);
+                    }
+                }
+            }
 
             // Restore high engagement nodes order
             foreach (var nodeId in graphData.orderedHighEngagementNodeIds)
@@ -1626,6 +1687,7 @@ public class HapticsAnnotationWindow : EditorWindow
     {
         public List<SerializableNodeData> nodes = new List<SerializableNodeData>();
         public List<SerializableEdgeData> edges = new List<SerializableEdgeData>();
+        public List<SerializableScopeData> scopes = new List<SerializableScopeData>();
 
         // Add ordered lists for engagement levels
         public List<string> orderedHighEngagementNodeIds = new List<string>();
@@ -1678,5 +1740,26 @@ public class HapticsAnnotationWindow : EditorWindow
     {
         public float x;
         public float y;
+    }
+
+    // Add this serializable class for scope data
+    [Serializable]
+    private class SerializableScopeData
+    {
+        public string title = "Group";
+        public SerializableVector2 position;
+        public SerializableVector2 size;
+        public SerializableColor color;
+        public List<string> containedNodeIds = new List<string>();
+    }
+
+    // Add this serializable class for color
+    [Serializable]
+    private class SerializableColor
+    {
+        public float r = 0.2f;
+        public float g = 0.3f;
+        public float b = 0.4f;
+        public float a = 0.3f;
     }
 }

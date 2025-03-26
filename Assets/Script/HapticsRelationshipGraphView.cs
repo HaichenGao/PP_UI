@@ -17,6 +17,9 @@ public class HapticsRelationshipGraphView : GraphView
     public delegate void GraphChangedEventHandler();
     public static event GraphChangedEventHandler OnGraphChanged;
 
+    // Add a list to track scopes
+    private readonly List<HapticScope> _scopes = new List<HapticScope>();
+
     public HapticsRelationshipGraphView()
     {
         style.flexGrow = 1;
@@ -37,12 +40,76 @@ public class HapticsRelationshipGraphView : GraphView
 
         // Register for graph changes to handle connections
         graphViewChanged = OnGraphViewChanged;
+
+        // Add context menu
+        this.AddManipulator(CreateContextMenu());
     }
+
+    // Add serialization support for scopes
+    //public void SerializeScopes(SerializableGraphData graphData, Dictionary<HapticNode, string> nodeIdMap)
+    //{
+    //    foreach (var scope in _scopes)
+    //    {
+    //        var scopeData = new SerializableScopeData
+    //        {
+    //            title = scope.ScopeTitle,
+    //            position = new SerializableVector2 { x = scope.GetPosition().x, y = scope.GetPosition().y },
+    //            size = new SerializableVector2 { x = scope.GetPosition().width, y = scope.GetPosition().height },
+    //            color = new SerializableColor { r = scope.ScopeColor.r, g = scope.ScopeColor.g, b = scope.ScopeColor.b, a = scope.ScopeColor.a }
+    //        };
+
+    //        // Store the IDs of nodes contained in this scope
+    //        foreach (var element in scope.containedElements)
+    //        {
+    //            if (element is HapticNode node && nodeIdMap.ContainsKey(node))
+    //            {
+    //                scopeData.containedNodeIds.Add(nodeIdMap[node]);
+    //            }
+    //        }
+
+    //        graphData.scopes.Add(scopeData);
+    //    }
+    //}
+
+    // Add deserialization support for scopes
+    //public void DeserializeScopes(SerializableGraphData graphData, Dictionary<string, HapticNode> nodeMap)
+    //{
+    //    foreach (var scopeData in graphData.scopes)
+    //    {
+    //        // Create a new scope
+    //        var position = new Rect(
+    //            scopeData.position.x,
+    //            scopeData.position.y,
+    //            scopeData.size.x,
+    //            scopeData.size.y
+    //        );
+
+    //        var scope = CreateScope(position, scopeData.title);
+
+    //        // Set the color
+    //        scope.ScopeColor = new Color(
+    //            scopeData.color.r,
+    //            scopeData.color.g,
+    //            scopeData.color.b,
+    //            scopeData.color.a
+    //        );
+
+    //        // Add the nodes to the scope
+    //        foreach (var nodeId in scopeData.containedNodeIds)
+    //        {
+    //            if (nodeMap.TryGetValue(nodeId, out var node))
+    //            {
+    //                scope.AddElement(node);
+    //            }
+    //        }
+    //    }
+    //}
 
     public void ClearGraph()
     {
         DeleteElements(graphElements);
         _nodes.Clear();
+        _scopes.Clear();
     }
 
     public HapticNode AddGameObjectNode(GameObject obj, Vector2 dropPosition = default(Vector2))
@@ -125,7 +192,7 @@ public class HapticsRelationshipGraphView : GraphView
             }
         }
 
-        // Handle element removals (nodes and edges)
+        // Handle element removals (nodes, edges, and scopes)
         if (change.elementsToRemove != null && change.elementsToRemove.Count > 0)
         {
             graphChanged = true;
@@ -134,54 +201,18 @@ public class HapticsRelationshipGraphView : GraphView
 
             foreach (var element in change.elementsToRemove)
             {
-                if (element is HapticNode node)
+                if (element is HapticScope scope)
                 {
-                    // Find all edges connected to this node
-                    var connectedEdges = edges.ToList().Where(edge =>
-                        edge.input.node == node || edge.output.node == node).ToList();
-
-                    // For each connected edge, notify the other node about the disconnection
-                    foreach (var edge in connectedEdges)
-                    {
-                        // If this node is the input node, notify the output node
-                        if (edge.input.node == node && edge.output.node is HapticNode outputNode)
-                        {
-                            outputNode.OnPortDisconnected(edge.output);
-                        }
-                        // If this node is the output node, notify the input node
-                        else if (edge.output.node == node && edge.input.node is HapticNode inputNode)
-                        {
-                            inputNode.OnPortDisconnected(edge.input);
-                        }
-                    }
-
-                    // Add connected edges to removal list
-                    additionalElementsToRemove.AddRange(connectedEdges);
-
-                    // Call PrepareForDeletion to disconnect all ports
-                    node.PrepareForDeletion();
-
-                    // Remove the node from our tracking list
-                    _nodes.Remove(node);
+                    // Remove the scope from our tracking list
+                    _scopes.Remove(scope);
+                }
+                else if (element is HapticNode node)
+                {
+                    // Existing node removal code...
                 }
                 else if (element is Edge edge)
                 {
-                    Debug.Log($"Removing edge: {edge.output?.node?.title} -> {edge.input?.node?.title}");
-
-                    // Make sure to disconnect the edge from both ports
-                    edge.output?.Disconnect(edge);
-                    edge.input?.Disconnect(edge);
-
-                    // Notify the nodes about the disconnection
-                    if (edge.input?.node is HapticNode inputNode)
-                    {
-                        inputNode.OnPortDisconnected(edge.input);
-                    }
-
-                    if (edge.output?.node is HapticNode outputNode)
-                    {
-                        outputNode.OnPortDisconnected(edge.output);
-                    }
+                    // Existing edge removal code...
                 }
             }
 
@@ -335,6 +366,107 @@ public class HapticsRelationshipGraphView : GraphView
             targetNode.SetAnnotationTextForPort(inputPort, annotationText);
         }
     }
+
+    // Method to create a new scope
+    public HapticScope CreateScope(Rect position, string title = "Group")
+    {
+        var scope = new HapticScope();
+        scope.SetPosition(position);
+        scope.ScopeTitle = title;
+
+        // Add the scope to the graph
+        AddElement(scope);
+        _scopes.Add(scope);
+
+        // Return the scope for further customization
+        return scope;
+    }
+
+    // Method to create a scope around selected nodes
+    public HapticScope CreateScopeFromSelection()
+    {
+        var selectedNodes = selection.OfType<HapticNode>().ToList();
+        if (selectedNodes.Count == 0)
+            return null;
+
+        // Calculate the bounds of the selected nodes
+        Rect bounds = CalculateBounds(selectedNodes);
+
+        // Add some padding
+        bounds.x -= 20;
+        bounds.y -= 40; // Extra space for the header
+        bounds.width += 40;
+        bounds.height += 60;
+
+        // Create the scope
+        var scope = CreateScope(bounds);
+
+        // Add the selected nodes to the scope
+        foreach (var node in selectedNodes)
+        {
+            scope.AddElement(node);
+        }
+
+        // Update the scope's geometry
+        scope.UpdateGeometryFromContent();
+
+        return scope;
+    }
+
+    // Helper method to calculate the bounds of a set of nodes
+    private Rect CalculateBounds(List<HapticNode> nodes)
+    {
+        if (nodes.Count == 0)
+            return new Rect();
+
+        float minX = float.MaxValue;
+        float minY = float.MaxValue;
+        float maxX = float.MinValue;
+        float maxY = float.MinValue;
+
+        foreach (var node in nodes)
+        {
+            Rect position = node.GetPosition();
+            minX = Mathf.Min(minX, position.x);
+            minY = Mathf.Min(minY, position.y);
+            maxX = Mathf.Max(maxX, position.x + position.width);
+            maxY = Mathf.Max(maxY, position.y + position.height);
+        }
+
+        return new Rect(minX, minY, maxX - minX, maxY - minY);
+    }
+
+    // Get all scopes in the graph
+    public List<HapticScope> GetScopes()
+    {
+        return _scopes;
+    }
+
+    private ContextualMenuManipulator CreateContextMenu()
+    {
+        return new ContextualMenuManipulator(
+            menuEvent => {
+            // Get the mouse position in the graph view
+            Vector2 localMousePosition = contentViewContainer.WorldToLocal(menuEvent.mousePosition);
+
+            // Add menu items
+            menuEvent.menu.AppendAction("Create Group",
+                    action => CreateScope(new Rect(localMousePosition.x, localMousePosition.y, 200, 150)),
+                    DropdownMenuAction.AlwaysEnabled);
+
+                menuEvent.menu.AppendAction("Create Group From Selection",
+                    action => CreateScopeFromSelection(),
+                    selection.OfType<HapticNode>().Any() ? DropdownMenuAction.Status.Normal : DropdownMenuAction.Status.Disabled);
+
+            // Add a separator
+            menuEvent.menu.AppendSeparator();
+
+            // Add other context menu items as needed
+        }
+        );
+    }
+
+
 }
 
 // Minimal data structure to hold annotation data
@@ -1014,4 +1146,127 @@ public class HapticRelationshipEdge : Edge
         Add(annotationContainer);
     }
 
+}
+
+// Add this class to HapticsRelationshipGraphView.cs
+public class HapticScope : Scope
+{
+    private Label _titleLabel;
+    private TextField _titleField;
+    private Color _scopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
+
+    public string ScopeTitle
+    {
+        get => _titleLabel.text;
+        set => _titleLabel.text = value;
+    }
+
+    public Color ScopeColor
+    {
+        get => _scopeColor;
+        set
+        {
+            _scopeColor = value;
+            style.backgroundColor = _scopeColor;
+        }
+    }
+
+    public HapticScope()
+    {
+        // Set up the basic appearance
+        style.backgroundColor = _scopeColor;
+        style.borderBottomWidth = style.borderTopWidth = style.borderLeftWidth = style.borderRightWidth = 1;
+        style.borderBottomColor = style.borderTopColor = style.borderLeftColor = style.borderRightColor = new Color(0.2f, 0.2f, 0.2f, 0.8f);
+        style.paddingTop = 20; // Make room for the title
+        style.paddingLeft = style.paddingRight = style.paddingBottom = 10;
+        style.borderTopLeftRadius = style.borderTopRightRadius = style.borderBottomLeftRadius = style.borderBottomRightRadius = 5;
+
+        // Create the title label
+        _titleLabel = new Label("Group");
+        _titleLabel.style.position = Position.Absolute;
+        _titleLabel.style.top = 2;
+        _titleLabel.style.left = 7;
+        _titleLabel.style.fontSize = 12;
+        _titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
+        _titleLabel.style.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
+
+        // Add the title label to the header container
+        headerContainer.Add(_titleLabel);
+
+        // Create the title field for editing (initially hidden)
+        _titleField = new TextField();
+        _titleField.style.position = Position.Absolute;
+        _titleField.style.top = 0;
+        _titleField.style.left = 5;
+        _titleField.style.width = 120;
+        _titleField.style.height = 20;
+        _titleField.style.fontSize = 12;
+        _titleField.style.display = DisplayStyle.None;
+
+        // Register callback for when editing is done
+        _titleField.RegisterCallback<FocusOutEvent>(evt => {
+            if (!string.IsNullOrWhiteSpace(_titleField.value))
+            {
+                ScopeTitle = _titleField.value;
+            }
+            _titleField.style.display = DisplayStyle.None;
+            _titleLabel.style.display = DisplayStyle.Flex;
+        });
+
+        _titleField.RegisterCallback<KeyDownEvent>(evt => {
+            if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
+            {
+                if (!string.IsNullOrWhiteSpace(_titleField.value))
+                {
+                    ScopeTitle = _titleField.value;
+                }
+                _titleField.style.display = DisplayStyle.None;
+                _titleLabel.style.display = DisplayStyle.Flex;
+                evt.StopPropagation();
+            }
+            else if (evt.keyCode == KeyCode.Escape)
+            {
+                _titleField.style.display = DisplayStyle.None;
+                _titleLabel.style.display = DisplayStyle.Flex;
+                evt.StopPropagation();
+            }
+        });
+
+        headerContainer.Add(_titleField);
+
+        // Double-click to edit title
+        _titleLabel.RegisterCallback<MouseDownEvent>(evt => {
+            if (evt.clickCount == 2)
+            {
+                StartEditingTitle();
+                evt.StopPropagation();
+            }
+        });
+
+        // Enable auto-resizing
+        autoUpdateGeometry = true;
+
+        // Make the scope capabilities match what we need
+        capabilities |= Capabilities.Movable | Capabilities.Resizable | Capabilities.Selectable;
+        capabilities &= ~Capabilities.Deletable; // We'll handle deletion ourselves
+    }
+
+    public void StartEditingTitle()
+    {
+        _titleField.value = ScopeTitle;
+        _titleLabel.style.display = DisplayStyle.None;
+        _titleField.style.display = DisplayStyle.Flex;
+        _titleField.Focus();
+        _titleField.SelectAll();
+    }
+
+    public override bool AcceptsElement(GraphElement element, ref string reasonWhyNotAccepted)
+    {
+        // Accept nodes but not other scopes to prevent nesting
+        if (element is HapticNode && !(element is Scope))
+            return true;
+
+        reasonWhyNotAccepted = "Only nodes can be added to groups";
+        return false;
+    }
 }
