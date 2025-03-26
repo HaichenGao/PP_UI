@@ -20,6 +20,7 @@ public class HapticsRelationshipGraphView : GraphView
     // Add a list to track scopes
     private readonly List<HapticScope> _scopes = new List<HapticScope>();
 
+    // Update the HapticsRelationshipGraphView class constructor
     public HapticsRelationshipGraphView()
     {
         style.flexGrow = 1;
@@ -45,65 +46,87 @@ public class HapticsRelationshipGraphView : GraphView
         this.AddManipulator(CreateContextMenu());
     }
 
-    // Add serialization support for scopes
-    //public void SerializeScopes(SerializableGraphData graphData, Dictionary<HapticNode, string> nodeIdMap)
-    //{
-    //    foreach (var scope in _scopes)
-    //    {
-    //        var scopeData = new SerializableScopeData
-    //        {
-    //            title = scope.ScopeTitle,
-    //            position = new SerializableVector2 { x = scope.GetPosition().x, y = scope.GetPosition().y },
-    //            size = new SerializableVector2 { x = scope.GetPosition().width, y = scope.GetPosition().height },
-    //            color = new SerializableColor { r = scope.ScopeColor.r, g = scope.ScopeColor.g, b = scope.ScopeColor.b, a = scope.ScopeColor.a }
-    //        };
+    // Add these methods to handle dragging nodes into scopes
+    private void OnDragUpdatedEvent(DragUpdatedEvent evt)
+    {
+        // Check if we're dragging nodes
+        if (selection.OfType<HapticNode>().Any())
+        {
+            DragAndDrop.visualMode = DragAndDropVisualMode.Move;
+            evt.StopPropagation();
+        }
+    }
 
-    //        // Store the IDs of nodes contained in this scope
-    //        foreach (var element in scope.containedElements)
-    //        {
-    //            if (element is HapticNode node && nodeIdMap.ContainsKey(node))
-    //            {
-    //                scopeData.containedNodeIds.Add(nodeIdMap[node]);
-    //            }
-    //        }
+    private void OnDragPerformEvent(DragPerformEvent evt)
+    {
+        // Get the selected nodes
+        var selectedNodes = selection.OfType<HapticNode>().ToList();
+        if (selectedNodes.Count == 0)
+            return;
 
-    //        graphData.scopes.Add(scopeData);
-    //    }
-    //}
+        // Find the scope under the mouse
+        Vector2 mousePosition = evt.mousePosition;
+        var scopes = graphElements.OfType<HapticScope>().ToList();
 
-    // Add deserialization support for scopes
-    //public void DeserializeScopes(SerializableGraphData graphData, Dictionary<string, HapticNode> nodeMap)
-    //{
-    //    foreach (var scopeData in graphData.scopes)
-    //    {
-    //        // Create a new scope
-    //        var position = new Rect(
-    //            scopeData.position.x,
-    //            scopeData.position.y,
-    //            scopeData.size.x,
-    //            scopeData.size.y
-    //        );
+        foreach (var scope in scopes)
+        {
+            if (scope.worldBound.Contains(mousePosition))
+            {
+                // Add selected nodes to this scope
+                foreach (var node in selectedNodes)
+                {
+                    scope.AddElement(node);
+                }
+                break;
+            }
+        }
+    }
 
-    //        var scope = CreateScope(position, scopeData.title);
+    // Update the BuildContextualMenu method to add scope-related actions
+    // Update the BuildContextualMenu method in HapticsRelationshipGraphView
+    public override void BuildContextualMenu(ContextualMenuPopulateEvent evt)
+    {
+        base.BuildContextualMenu(evt);
 
-    //        // Set the color
-    //        scope.ScopeColor = new Color(
-    //            scopeData.color.r,
-    //            scopeData.color.g,
-    //            scopeData.color.b,
-    //            scopeData.color.a
-    //        );
+        // Add custom menu items for nodes
+        if (evt.target is HapticNode)
+        {
+            evt.menu.AppendSeparator();
+            evt.menu.AppendAction("Add to New Group", (a) => {
+                var selectedNodes = selection.OfType<HapticNode>().ToList();
+                if (selectedNodes.Count > 0)
+                {
+                    CreateScopeFromSelection();
+                }
+            });
+        }
 
-    //        // Add the nodes to the scope
-    //        foreach (var nodeId in scopeData.containedNodeIds)
-    //        {
-    //            if (nodeMap.TryGetValue(nodeId, out var node))
-    //            {
-    //                scope.AddElement(node);
-    //            }
-    //        }
-    //    }
-    //}
+        // Add custom menu items for scopes
+        if (evt.target is HapticScope scope)
+        {
+            evt.menu.AppendSeparator();
+
+            evt.menu.AppendAction("Set Color/Blue", (a) => {
+                scope.ScopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
+            });
+
+            evt.menu.AppendAction("Set Color/Green", (a) => {
+                scope.ScopeColor = new Color(0.2f, 0.4f, 0.2f, 0.3f);
+            });
+
+            evt.menu.AppendAction("Set Color/Red", (a) => {
+                scope.ScopeColor = new Color(0.4f, 0.2f, 0.2f, 0.3f);
+            });
+
+            evt.menu.AppendAction("Set Color/Purple", (a) => {
+                scope.ScopeColor = new Color(0.4f, 0.2f, 0.4f, 0.3f);
+            });
+
+            evt.menu.AppendAction("Set Color/Orange", (a) => {
+                scope.ScopeColor = new Color(0.5f, 0.3f, 0.1f, 0.3f);
+            });
+        }
+    }
 
     public void ClearGraph()
     {
@@ -112,6 +135,7 @@ public class HapticsRelationshipGraphView : GraphView
         _scopes.Clear();
     }
 
+    // Update the AddGameObjectNode method in HapticsRelationshipGraphView
     public HapticNode AddGameObjectNode(GameObject obj, Vector2 dropPosition = default(Vector2))
     {
         // Create a new HapticNode (custom node) with a reference to GameObject
@@ -119,6 +143,22 @@ public class HapticsRelationshipGraphView : GraphView
         node.SetPosition(new Rect(dropPosition.x, dropPosition.y, 200, 150));
         AddElement(node);
         _nodes.Add(node);
+
+        // Check if the node was dropped inside a scope
+        Rect nodeRect = node.GetPosition();
+        Vector2 nodeCenter = new Vector2(nodeRect.x + nodeRect.width / 2, nodeRect.y + nodeRect.height / 2);
+
+        // Check all scopes to see if the node is inside any of them
+        var scopes = graphElements.OfType<HapticScope>().ToList();
+        foreach (var scope in scopes)
+        {
+            Rect scopeRect = scope.GetPosition();
+            if (scopeRect.Contains(nodeCenter))
+            {
+                scope.AddElement(node);
+                break;
+            }
+        }
 
         // Return the created node
         return node;
@@ -166,7 +206,8 @@ public class HapticsRelationshipGraphView : GraphView
         return compatiblePorts;
     }
 
-    // Intercept edge creation so we can instantiate HapticRelationshipEdge
+    // Update the OnGraphViewChanged method in HapticsRelationshipGraphView
+    // Update the OnGraphViewChanged method in HapticsRelationshipGraphView
     private GraphViewChange OnGraphViewChanged(GraphViewChange change)
     {
         bool graphChanged = false;
@@ -208,11 +249,52 @@ public class HapticsRelationshipGraphView : GraphView
                 }
                 else if (element is HapticNode node)
                 {
-                    // Existing node removal code...
+                    // Find all edges connected to this node
+                    var connectedEdges = edges.ToList().Where(edge =>
+                        edge.input.node == node || edge.output.node == node).ToList();
+
+                    // For each connected edge, notify the other node about the disconnection
+                    foreach (var edge in connectedEdges)
+                    {
+                        // If this node is the input node, notify the output node
+                        if (edge.input.node == node && edge.output.node is HapticNode outputNode)
+                        {
+                            outputNode.OnPortDisconnected(edge.output);
+                        }
+                        // If this node is the output node, notify the input node
+                        else if (edge.output.node == node && edge.input.node is HapticNode inputNode)
+                        {
+                            inputNode.OnPortDisconnected(edge.input);
+                        }
+                    }
+
+                    // Add connected edges to removal list
+                    additionalElementsToRemove.AddRange(connectedEdges);
+
+                    // Call PrepareForDeletion to disconnect all ports
+                    node.PrepareForDeletion();
+
+                    // Remove the node from our tracking list
+                    _nodes.Remove(node);
                 }
                 else if (element is Edge edge)
                 {
-                    // Existing edge removal code...
+                    Debug.Log($"Removing edge: {edge.output?.node?.title} -> {edge.input?.node?.title}");
+
+                    // Make sure to disconnect the edge from both ports
+                    edge.output?.Disconnect(edge);
+                    edge.input?.Disconnect(edge);
+
+                    // Notify the nodes about the disconnection
+                    if (edge.input?.node is HapticNode inputNode)
+                    {
+                        inputNode.OnPortDisconnected(edge.input);
+                    }
+
+                    if (edge.output?.node is HapticNode outputNode)
+                    {
+                        outputNode.OnPortDisconnected(edge.output);
+                    }
                 }
             }
 
@@ -367,12 +449,12 @@ public class HapticsRelationshipGraphView : GraphView
         }
     }
 
-    // Method to create a new scope
+    // Update the CreateScope method in HapticsRelationshipGraphView
     public HapticScope CreateScope(Rect position, string title = "Group")
     {
         var scope = new HapticScope();
         scope.SetPosition(position);
-        scope.ScopeTitle = title;
+        scope.title = title; // Use title instead of ScopeTitle
 
         // Add the scope to the graph
         AddElement(scope);
@@ -382,7 +464,7 @@ public class HapticsRelationshipGraphView : GraphView
         return scope;
     }
 
-    // Method to create a scope around selected nodes
+    // Update the CreateScopeFromSelection method in HapticsRelationshipGraphView
     public HapticScope CreateScopeFromSelection()
     {
         var selectedNodes = selection.OfType<HapticNode>().ToList();
@@ -406,9 +488,6 @@ public class HapticsRelationshipGraphView : GraphView
         {
             scope.AddElement(node);
         }
-
-        // Update the scope's geometry
-        scope.UpdateGeometryFromContent();
 
         return scope;
     }
@@ -442,6 +521,8 @@ public class HapticsRelationshipGraphView : GraphView
         return _scopes;
     }
 
+    // Update the CreateContextMenu method in HapticsRelationshipGraphView
+    // Update the CreateContextMenu method in HapticsRelationshipGraphView
     private ContextualMenuManipulator CreateContextMenu()
     {
         return new ContextualMenuManipulator(
@@ -461,8 +542,30 @@ public class HapticsRelationshipGraphView : GraphView
             // Add a separator
             menuEvent.menu.AppendSeparator();
 
-            // Add other context menu items as needed
-        }
+            // Add an option to add selected nodes to an existing scope
+            if (selection.OfType<HapticNode>().Any())
+                {
+                    var scopes = graphElements.OfType<HapticScope>().ToList();
+                    if (scopes.Count > 0)
+                    {
+                    // Add each scope as a separate menu item
+                    foreach (var scope in scopes)
+                        {
+                            menuEvent.menu.AppendAction($"Add to Group: {scope.title}", // Use title instead of ScopeTitle
+                                action => {
+                                    foreach (var element in selection)
+                                    {
+                                        if (element is HapticNode node)
+                                        {
+                                            scope.AddElement(node);
+                                        }
+                                    }
+                                },
+                                DropdownMenuAction.Status.Normal);
+                        }
+                    }
+                }
+            }
         );
     }
 
@@ -1148,18 +1251,14 @@ public class HapticRelationshipEdge : Edge
 
 }
 
-// Add this class to HapticsRelationshipGraphView.cs
-public class HapticScope : Scope
+// Update the HapticScope class in HapticsRelationshipGraphView.cs
+// Update the HapticScope class in HapticsRelationshipGraphView.cs
+// Update the HapticScope class in HapticsRelationshipGraphView.cs
+// Update the HapticScope class in HapticsRelationshipGraphView.cs
+// Update the HapticScope class in HapticsRelationshipGraphView.cs
+public class HapticScope : Group
 {
-    private Label _titleLabel;
-    private TextField _titleField;
     private Color _scopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
-
-    public string ScopeTitle
-    {
-        get => _titleLabel.text;
-        set => _titleLabel.text = value;
-    }
 
     public Color ScopeColor
     {
@@ -1181,92 +1280,17 @@ public class HapticScope : Scope
         style.paddingLeft = style.paddingRight = style.paddingBottom = 10;
         style.borderTopLeftRadius = style.borderTopRightRadius = style.borderBottomLeftRadius = style.borderBottomRightRadius = 5;
 
-        // Create the title label
-        _titleLabel = new Label("Group");
-        _titleLabel.style.position = Position.Absolute;
-        _titleLabel.style.top = 2;
-        _titleLabel.style.left = 7;
-        _titleLabel.style.fontSize = 12;
-        _titleLabel.style.unityFontStyleAndWeight = FontStyle.Bold;
-        _titleLabel.style.color = new Color(0.9f, 0.9f, 0.9f, 0.9f);
-
-        // Add the title label to the header container
-        headerContainer.Add(_titleLabel);
-
-        // Create the title field for editing (initially hidden)
-        _titleField = new TextField();
-        _titleField.style.position = Position.Absolute;
-        _titleField.style.top = 0;
-        _titleField.style.left = 5;
-        _titleField.style.width = 120;
-        _titleField.style.height = 20;
-        _titleField.style.fontSize = 12;
-        _titleField.style.display = DisplayStyle.None;
-
-        // Register callback for when editing is done
-        _titleField.RegisterCallback<FocusOutEvent>(evt => {
-            if (!string.IsNullOrWhiteSpace(_titleField.value))
-            {
-                ScopeTitle = _titleField.value;
-            }
-            _titleField.style.display = DisplayStyle.None;
-            _titleLabel.style.display = DisplayStyle.Flex;
-        });
-
-        _titleField.RegisterCallback<KeyDownEvent>(evt => {
-            if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
-            {
-                if (!string.IsNullOrWhiteSpace(_titleField.value))
-                {
-                    ScopeTitle = _titleField.value;
-                }
-                _titleField.style.display = DisplayStyle.None;
-                _titleLabel.style.display = DisplayStyle.Flex;
-                evt.StopPropagation();
-            }
-            else if (evt.keyCode == KeyCode.Escape)
-            {
-                _titleField.style.display = DisplayStyle.None;
-                _titleLabel.style.display = DisplayStyle.Flex;
-                evt.StopPropagation();
-            }
-        });
-
-        headerContainer.Add(_titleField);
-
-        // Double-click to edit title
-        _titleLabel.RegisterCallback<MouseDownEvent>(evt => {
-            if (evt.clickCount == 2)
-            {
-                StartEditingTitle();
-                evt.StopPropagation();
-            }
-        });
+        // Set initial title
+        title = "Group";
 
         // Enable auto-resizing
-        autoUpdateGeometry = true;
-
-        // Make the scope capabilities match what we need
-        capabilities |= Capabilities.Movable | Capabilities.Resizable | Capabilities.Selectable;
-        capabilities &= ~Capabilities.Deletable; // We'll handle deletion ourselves
+        this.capabilities |= Capabilities.Movable | Capabilities.Resizable | Capabilities.Selectable;
     }
 
+    // Method to start editing the title (Group already has built-in title editing)
     public void StartEditingTitle()
     {
-        _titleField.value = ScopeTitle;
-        _titleLabel.style.display = DisplayStyle.None;
-        _titleField.style.display = DisplayStyle.Flex;
-        _titleField.Focus();
-        _titleField.SelectAll();
-    }
-
-    public override bool AcceptsElement(GraphElement element, ref string reasonWhyNotAccepted)
-    {
-        // Accept nodes but not other scopes to prevent nesting
-        if (element is HapticNode && !(element is Scope))
-            return true;
-
-        reasonWhyNotAccepted = "Only nodes can be added to groups";
-        return false;
+        // The Group class already handles title editing when double-clicked
+        // This method is kept for compatibility with existing code
     }
 }

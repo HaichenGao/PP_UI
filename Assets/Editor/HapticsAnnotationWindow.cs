@@ -1308,7 +1308,7 @@ public class HapticsAnnotationWindow : EditorWindow
         {
             var scopeData = new SerializableScopeData
             {
-                title = scope.ScopeTitle,
+                title = scope.title,
                 position = new SerializableVector2 { x = scope.GetPosition().x, y = scope.GetPosition().y },
                 size = new SerializableVector2 { x = scope.GetPosition().width, y = scope.GetPosition().height },
                 color = new SerializableColor
