@@ -1262,7 +1262,7 @@ public class HapticsAnnotationWindow : EditorWindow
 
         foreach (var node in _orderedMediumEngagementNodes)
         {
-            if (nodeIdMap.ContainsKey(node))
+            if (nodeIdMap.ContainsKey(node)) 
             {
                 graphData.orderedMediumEngagementNodeIds.Add(nodeIdMap[node]);
             }
