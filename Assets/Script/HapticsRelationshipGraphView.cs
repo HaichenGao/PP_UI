@@ -71,18 +71,21 @@ public class HapticsRelationshipGraphView : GraphView
     // Update the OnMouseDown method to handle platform differences
     private void OnMouseDown(MouseDownEvent evt)
     {
-        // Check if Ctrl/Cmd is pressed and it's a left click
+        // Check if Shift is pressed and it's a left click
         if (evt.shiftKey && evt.button == 0)
         {
             // Start group selection
             _isGroupSelectionActive = true;
+
+            // Convert mouse position to world space
             _groupSelectionStartPosition = evt.localMousePosition;
 
             // Show and position the selection rectangle
             _selectionRectangle.visible = true;
             _selectionRectangle.style.left = _groupSelectionStartPosition.x;
             _selectionRectangle.style.top = _groupSelectionStartPosition.y;
-            _selectionRectangle.style.width = _selectionRectangle.style.height = 0;
+            _selectionRectangle.style.width = 0;
+            _selectionRectangle.style.height = 0;
 
             // Prevent other handlers from processing this event
             evt.StopPropagation();
@@ -136,13 +139,17 @@ public class HapticsRelationshipGraphView : GraphView
             // Only create a group if the selection has some size
             if (selectionRect.width > 10 && selectionRect.height > 10)
             {
+                // Convert the selection rectangle from GraphView space to content container space
+                Vector2 contentViewPosition = contentViewContainer.WorldToLocal(new Vector2(selectionRect.x, selectionRect.y));
+                Rect contentSelectionRect = new Rect(contentViewPosition.x, contentViewPosition.y, selectionRect.width, selectionRect.height);
+
                 // Find all nodes within the selection rectangle
                 var selectedNodes = new List<HapticNode>();
                 foreach (var node in _nodes)
                 {
                     Rect nodeRect = node.GetPosition();
                     // Check if the node is at least partially inside the selection rectangle
-                    if (nodeRect.Overlaps(selectionRect))
+                    if (nodeRect.Overlaps(contentSelectionRect))
                     {
                         selectedNodes.Add(node);
                     }
@@ -151,7 +158,8 @@ public class HapticsRelationshipGraphView : GraphView
                 // If we have selected nodes, create a group
                 if (selectedNodes.Count > 0)
                 {
-                    CreateNodeGroup(selectedNodes, selectionRect);
+                    // Use the content space rectangle for the group
+                    CreateNodeGroup(selectedNodes, contentSelectionRect);
                 }
             }
 
@@ -1243,25 +1251,18 @@ public class HapticNodeGroup : GraphElement
 
         // Set up the group element
         this.SetPosition(rect);
-        this.style.backgroundColor = new Color(0.2f, 0.2f, 0.2f, 0.5f);
-        this.style.borderLeftWidth = this.style.borderRightWidth =
-        this.style.borderTopWidth = this.style.borderBottomWidth = 1;
-        this.style.borderLeftColor = this.style.borderRightColor =
-        this.style.borderTopColor = this.style.borderBottomColor = new Color(0.7f, 0.7f, 0.7f, 0.7f);
+
+        // Apply the node-group class for styling
+        AddToClassList("node-group");
 
         // Create the header
         _header = new VisualElement();
-        _header.style.height = 24;
-        _header.style.backgroundColor = new Color(0.1f, 0.1f, 0.1f, 0.8f);
-        _header.style.flexDirection = FlexDirection.Row;
-        _header.style.alignItems = Align.Center;
-        _header.style.paddingLeft = 8;
-        _header.style.paddingRight = 8;
+        _header.AddToClassList("node-group-header");
 
         // Add a title field
         _titleField = new TextField();
         _titleField.value = _title;
-        _titleField.style.flexGrow = 1;
+        _titleField.AddToClassList("node-group-title");
         _titleField.RegisterValueChangedCallback(evt => _title = evt.newValue);
 
         // Add the title field to the header
@@ -1275,6 +1276,24 @@ public class HapticNodeGroup : GraphElement
 
         // Register for position change events to move the contained nodes
         RegisterCallback<GeometryChangedEvent>(OnGeometryChanged);
+
+        // Initialize node offsets immediately
+        InitializeNodeOffsets();
+    }
+
+    private void InitializeNodeOffsets()
+    {
+        Rect groupRect = GetPosition();
+        _lastPosition = new Vector2(groupRect.x, groupRect.y);
+
+        foreach (var node in _nodes)
+        {
+            Rect nodeRect = node.GetPosition();
+            _nodeOffsets[node] = new Vector2(
+                nodeRect.x - groupRect.x,
+                nodeRect.y - groupRect.y
+            );
+        }
     }
 
     // Track the initial positions of nodes relative to the group
@@ -1283,42 +1302,28 @@ public class HapticNodeGroup : GraphElement
 
     private void OnGeometryChanged(GeometryChangedEvent evt)
     {
-        // If this is the first time, initialize the node offsets
-        if (_nodeOffsets.Count == 0)
-        {
-            Rect groupRect = GetPosition();
-            _lastPosition = new Vector2(groupRect.x, groupRect.y);
+        // Calculate how much the group has moved
+        Rect groupRect = GetPosition();
+        Vector2 newPosition = new Vector2(groupRect.x, groupRect.y);
+        Vector2 delta = newPosition - _lastPosition;
 
+        // Only move nodes if the group actually moved
+        if (delta.sqrMagnitude > 0.001f)
+        {
+            // Move all nodes by the same delta
             foreach (var node in _nodes)
             {
+                // Skip nodes that have been deleted
+                if (node == null || node.parent == null)
+                    continue;
+
                 Rect nodeRect = node.GetPosition();
-                _nodeOffsets[node] = new Vector2(
-                    nodeRect.x - groupRect.x,
-                    nodeRect.y - groupRect.y
-                );
+                nodeRect.x += delta.x;
+                nodeRect.y += delta.y;
+                node.SetPosition(nodeRect);
             }
-        }
-        else
-        {
-            // Calculate how much the group has moved
-            Rect groupRect = GetPosition();
-            Vector2 newPosition = new Vector2(groupRect.x, groupRect.y);
-            Vector2 delta = newPosition - _lastPosition;
 
-            // Only move nodes if the group actually moved
-            if (delta.sqrMagnitude > 0.001f)
-            {
-                // Move all nodes by the same delta
-                foreach (var node in _nodes)
-                {
-                    Rect nodeRect = node.GetPosition();
-                    nodeRect.x += delta.x;
-                    nodeRect.y += delta.y;
-                    node.SetPosition(nodeRect);
-                }
-
-                _lastPosition = newPosition;
-            }
+            _lastPosition = newPosition;
         }
     }
 

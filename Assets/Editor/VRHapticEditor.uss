@@ -340,23 +340,25 @@
     border-color: rgba(20, 20, 20, 0.8);
 }
 
-/* Add these styles to VRHapticEditor.uss */
-#selection-rectangle {
-    position: absolute;
-    background-color: rgba(51, 102, 204, 0.1);
-    border-width: 1px;
-    border-color: rgba(51, 102, 204, 0.8);
-}
-
+/* Update these styles in VRHapticEditor.uss */
 .node-group {
-    background-color: rgba(30, 255, 30, 0.5);
+    background-color: rgba(40, 40, 40, 0.3);
     border-width: 1px;
-    border-color: rgba(180, 180, 180, 0.7);
+    border-color: rgba(100, 180, 255, 0.7);
     border-radius: 5px;
 }
 
+.node-group:hover {
+    border-color: rgba(120, 200, 255, 0.9);
+}
+
+.node-group:selected {
+    border-width: 2px;
+    border-color: rgba(150, 220, 255, 1.0);
+}
+
 .node-group-header {
-    background-color: rgba(30, 255, 30, 0.8);
+    background-color: rgba(60, 100, 180, 0.7);
     height: 24px;
     border-top-left-radius: 5px;
     border-top-right-radius: 5px;
@@ -367,8 +369,23 @@
 
 .node-group-title {
     flex-grow: 1;
-    color: rgba(220, 220, 220, 0.9);
+    color: rgba(240, 240, 240, 0.9);
     -unity-font-style: bold;
     font-size: 12px;
     margin-left: 4px;
+    background-color: transparent;
+    border-width: 0;
+}
+
+.node-group-title:focus {
+    background-color: rgba(80, 120, 200, 0.7);
+    border-width: 0;
+}
+
+#selection-rectangle {
+    position: absolute;
+    background-color: rgba(51, 102, 204, 0.1);
+    border-width: 1px;
+    border-color: rgba(51, 102, 204, 0.8);
+    z-index: 100;
 }
