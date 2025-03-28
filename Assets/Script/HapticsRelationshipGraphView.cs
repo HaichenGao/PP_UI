@@ -1247,7 +1247,6 @@ public class HapticScope : Group
         this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
     }
 
-    // Add this method to handle the context menu for the group
     private void BuildContextualMenu(ContextualMenuPopulateEvent evt)
     {
         // Add "Ungroup All" option
@@ -1259,6 +1258,14 @@ public class HapticScope : Group
             foreach (var element in elementsToRemove)
             {
                 RemoveElement(element);
+            }
+
+            // Get a reference to the parent GraphView
+            var graphView = GetFirstAncestorOfType<GraphView>();
+            if (graphView != null)
+            {
+                // Remove the group itself from the graph
+                graphView.RemoveElement(this);
             }
         });
 
