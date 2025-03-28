@@ -7,6 +7,15 @@ using UnityEditor;
 
 public class HapticsRelationshipGraphView : GraphView
 {
+    // Add a reference to the current graph asset
+    private HapticAnnotationGraph _currentGraph;
+
+    // Method to set the current graph
+    public void SetCurrentGraph(HapticAnnotationGraph graph)
+    {
+        _currentGraph = graph;
+    }
+
     public void RegisterCallback<T>(EventCallback<T> callback) where T : EventBase<T>, new()
     {
         base.RegisterCallback(callback);
@@ -92,9 +101,16 @@ public class HapticsRelationshipGraphView : GraphView
     // Update the AddGameObjectNode method in HapticsRelationshipGraphView
     public HapticNode AddGameObjectNode(GameObject obj, Vector2 dropPosition = default(Vector2))
     {
-        // Create a new HapticNode (custom node) with a reference to GameObject
+        // Create a new HapticNode with a reference to GameObject
         var node = new HapticNode(obj);
         node.SetPosition(new Rect(dropPosition.x, dropPosition.y, 200, 150));
+
+        // Register undo operation before adding the node
+        if (_currentGraph != null)
+        {
+            Undo.RecordObject(_currentGraph, "Add Node");
+        }
+
         AddElement(node);
         _nodes.Add(node);
 
@@ -113,6 +129,15 @@ public class HapticsRelationshipGraphView : GraphView
                 break;
             }
         }
+
+        // Mark the graph as dirty to ensure changes are saved
+        if (_currentGraph != null)
+        {
+            EditorUtility.SetDirty(_currentGraph);
+        }
+
+        // Notify that the graph has changed
+        OnGraphChanged?.Invoke();
 
         // Return the created node
         return node;
@@ -165,6 +190,14 @@ public class HapticsRelationshipGraphView : GraphView
     private GraphViewChange OnGraphViewChanged(GraphViewChange change)
     {
         bool graphChanged = false;
+
+        // Register undo before making changes
+        if (_currentGraph != null &&
+            ((change.edgesToCreate != null && change.edgesToCreate.Count > 0) ||
+             (change.elementsToRemove != null && change.elementsToRemove.Count > 0)))
+        {
+            Undo.RecordObject(_currentGraph, "Graph Change");
+        }
 
         // Handle new edges (connections)
         if (change.edgesToCreate != null && change.edgesToCreate.Count > 0)
@@ -259,12 +292,25 @@ public class HapticsRelationshipGraphView : GraphView
             }
         }
 
-        if (graphChanged)
+        // If the graph changed, mark it as dirty
+        if (graphChanged && _currentGraph != null)
         {
+            EditorUtility.SetDirty(_currentGraph);
             OnGraphChanged?.Invoke();
         }
 
         return change;
+    }
+
+    // Add a method to handle node movement with undo support
+    public void RegisterNodeMovement(List<GraphElement> elements)
+    {
+        if (_currentGraph != null && elements.Count > 0)
+        {
+            Undo.RecordObject(_currentGraph, "Move Nodes");
+            EditorUtility.SetDirty(_currentGraph);
+            OnGraphChanged?.Invoke();
+        }
     }
 
     public HapticAnnotationData CollectAnnotationData()
@@ -406,13 +452,28 @@ public class HapticsRelationshipGraphView : GraphView
     // Update the CreateScope method in HapticsRelationshipGraphView
     public HapticScope CreateScope(Rect position, string title = "Group")
     {
+        // Register undo operation
+        if (_currentGraph != null)
+        {
+            Undo.RecordObject(_currentGraph, "Create Group");
+        }
+
         var scope = new HapticScope();
         scope.SetPosition(position);
-        scope.title = title; // Use title instead of ScopeTitle
+        scope.title = title;
 
         // Add the scope to the graph
         AddElement(scope);
         _scopes.Add(scope);
+
+        // Mark the graph as dirty
+        if (_currentGraph != null)
+        {
+            EditorUtility.SetDirty(_currentGraph);
+        }
+
+        // Notify that the graph has changed
+        OnGraphChanged?.Invoke();
 
         // Return the scope for further customization
         return scope;
@@ -602,6 +663,14 @@ public class HapticConnectionRecord
 // Example node class: represents one VR object in the graph
 public class HapticNode : Node
 {
+    // Add a reference to the current graph asset
+    private HapticAnnotationGraph _currentGraph;
+
+    public void SetCurrentGraph(HapticAnnotationGraph graph)
+    {
+        _currentGraph = graph;
+    }
+
     // Add a delegate and event for engagement level changes
     public delegate void EngagementLevelChangedEventHandler(HapticNode node, int newLevel);
     public static event EngagementLevelChangedEventHandler OnEngagementLevelChanged;
@@ -1113,11 +1182,23 @@ public class HapticNode : Node
 
     public void SetAnnotationTextForPort(Port port, string text)
     {
+        // Register undo operation
+        if (_currentGraph != null)
+        {
+            Undo.RecordObject(_currentGraph, "Change Annotation Text");
+        }
+
         var portData = _inputPorts.Find(p => p.Port == port);
         if (portData != null)
         {
             portData.AnnotationField.value = text;
             portData.AnnotationField.SetEnabled(true);
+        }
+
+        // Mark the graph as dirty
+        if (_currentGraph != null)
+        {
+            EditorUtility.SetDirty(_currentGraph);
         }
     }
 
@@ -1127,6 +1208,12 @@ public class HapticNode : Node
         // Validate the level (0-2)
         if (level < 0 || level > 2)
             return;
+
+        // Register undo operation
+        if (_currentGraph != null)
+        {
+            Undo.RecordObject(_currentGraph, "Change Engagement Level");
+        }
 
         // Find the radio buttons in the radio group container
         // We need to use the correct path to find the radio buttons
@@ -1175,6 +1262,11 @@ public class HapticNode : Node
             // If we can't find the radio buttons, set the property directly
             // This is a fallback
             EngagementLevel = level;
+        }
+
+        if (_currentGraph != null)
+        {
+            EditorUtility.SetDirty(_currentGraph);
         }
     }
 
@@ -1239,6 +1331,14 @@ public class HapticScope : Group
 {
     public Color ScopeColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.3f);
 
+    // Add a reference to the current graph asset
+    private HapticAnnotationGraph _currentGraph;
+
+    public void SetCurrentGraph(HapticAnnotationGraph graph)
+    {
+        _currentGraph = graph;
+    }
+
     public HapticScope()
     {
         // Existing initialization code...
@@ -1251,6 +1351,12 @@ public class HapticScope : Group
     {
         // Add "Ungroup All" option
         evt.menu.AppendAction("Ungroup All", (a) => {
+            // Register undo operation
+            if (_currentGraph != null)
+            {
+                Undo.RecordObject(_currentGraph, "Ungroup All");
+            }
+
             // Get all elements in the scope
             var elementsToRemove = containedElements.ToList();
 
@@ -1267,34 +1373,61 @@ public class HapticScope : Group
                 // Remove the group itself from the graph
                 graphView.RemoveElement(this);
             }
+
+            // Mark the graph as dirty
+            if (_currentGraph != null)
+            {
+                EditorUtility.SetDirty(_currentGraph);
+            }
         });
 
         evt.menu.AppendSeparator();
 
         // Color options
         evt.menu.AppendAction("Set Color/Blue", (a) => {
+            // Register undo operation
+            if (_currentGraph != null)
+            {
+                Undo.RecordObject(_currentGraph, "Change Group Color");
+            }
+
             ScopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
             this.style.backgroundColor = ScopeColor;
+
+            // Mark the graph as dirty
+            if (_currentGraph != null)
+            {
+                EditorUtility.SetDirty(_currentGraph);
+            }
         });
 
+        // Similar undo registration for other color options...
         evt.menu.AppendAction("Set Color/Green", (a) => {
+            if (_currentGraph != null) Undo.RecordObject(_currentGraph, "Change Group Color");
             ScopeColor = new Color(0.2f, 0.4f, 0.2f, 0.3f);
             this.style.backgroundColor = ScopeColor;
+            if (_currentGraph != null) EditorUtility.SetDirty(_currentGraph);
         });
 
         evt.menu.AppendAction("Set Color/Red", (a) => {
+            if (_currentGraph != null) Undo.RecordObject(_currentGraph, "Change Group Color");
             ScopeColor = new Color(0.4f, 0.2f, 0.2f, 0.3f);
             this.style.backgroundColor = ScopeColor;
+            if (_currentGraph != null) EditorUtility.SetDirty(_currentGraph);
         });
 
         evt.menu.AppendAction("Set Color/Purple", (a) => {
+            if (_currentGraph != null) Undo.RecordObject(_currentGraph, "Change Group Color");
             ScopeColor = new Color(0.4f, 0.2f, 0.4f, 0.3f);
             this.style.backgroundColor = ScopeColor;
+            if (_currentGraph != null) EditorUtility.SetDirty(_currentGraph);
         });
 
         evt.menu.AppendAction("Set Color/Orange", (a) => {
+            if (_currentGraph != null) Undo.RecordObject(_currentGraph, "Change Group Color");
             ScopeColor = new Color(0.5f, 0.3f, 0.1f, 0.3f);
             this.style.backgroundColor = ScopeColor;
+            if (_currentGraph != null) EditorUtility.SetDirty(_currentGraph);
         });
     }
 

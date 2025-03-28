@@ -169,6 +169,32 @@ public class HapticsAnnotationWindow : EditorWindow
         {
             SaveGraph();
         }
+
+        // Unregister from Undo events
+        Undo.undoRedoPerformed -= OnUndoRedo;
+    }
+
+    private void OnUndoRedo()
+    {
+        // Reload the graph after an undo/redo operation
+        if (_currentGraph != null)
+        {
+            // Reload the graph data
+            if (!string.IsNullOrEmpty(_currentGraph.GraphData))
+            {
+                _graphView.ClearGraph();
+                DeserializeGraph(_currentGraph.GraphData);
+            }
+
+            // Update the summary
+            _graphSummary = _currentGraph.Summary;
+
+            // Update the inspector
+            UpdateInspector(null);
+
+            // Mark that we have unsaved changes
+            _hasUnsavedChanges = true;
+        }
     }
 
     private void OnKeyDown(KeyDownEvent evt)
@@ -177,6 +203,21 @@ public class HapticsAnnotationWindow : EditorWindow
         if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.S)
         {
             SaveGraph();
+            evt.StopPropagation();
+        }
+
+        // Check for Ctrl+Z or Cmd+Z (Undo)
+        if ((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.Z && !evt.shiftKey)
+        {
+            Undo.PerformUndo();
+            evt.StopPropagation();
+        }
+
+        // Check for Ctrl+Y or Cmd+Y or Ctrl+Shift+Z or Cmd+Shift+Z (Redo)
+        if (((evt.ctrlKey || evt.commandKey) && evt.keyCode == KeyCode.Y) ||
+            ((evt.ctrlKey || evt.commandKey) && evt.shiftKey && evt.keyCode == KeyCode.Z))
+        {
+            Undo.PerformRedo();
             evt.StopPropagation();
         }
     }
@@ -298,7 +339,19 @@ public class HapticsAnnotationWindow : EditorWindow
             summaryField.AddToClassList("inspector-field");
             summaryField.RegisterValueChangedCallback(evt =>
             {
+                // Register undo operation
+                if (_currentGraph != null)
+                {
+                    Undo.RecordObject(_currentGraph, "Change Graph Summary");
+                }
+
                 _graphSummary = evt.newValue;
+
+                // Mark the graph as dirty
+                if (_currentGraph != null)
+                {
+                    EditorUtility.SetDirty(_currentGraph);
+                }
             });
 
             // Add elements to the content container instead of directly to _inspectorContent
@@ -340,9 +393,25 @@ public class HapticsAnnotationWindow : EditorWindow
             // Add checkbox
             var directContactToggle = new Toggle();
             directContactToggle.value = selectedNode.IsDirectContacted;
+            //directContactToggle.RegisterValueChangedCallback(evt =>
+            //{
+            //    selectedNode.IsDirectContacted = evt.newValue;
+            //});
             directContactToggle.RegisterValueChangedCallback(evt =>
             {
+                // Register undo operation
+                if (_currentGraph != null)
+                {
+                    Undo.RecordObject(_currentGraph, "Change Direct Contact");
+                }
+
                 selectedNode.IsDirectContacted = evt.newValue;
+
+                // Mark the graph as dirty
+                if (_currentGraph != null)
+                {
+                    EditorUtility.SetDirty(_currentGraph);
+                }
             });
 
             // Add label and toggle to the container
@@ -365,7 +434,18 @@ public class HapticsAnnotationWindow : EditorWindow
             descriptionField.AddToClassList("inspector-field");
             descriptionField.RegisterValueChangedCallback(evt =>
             {
+                // Register undo operation
+                if (_currentGraph != null)
+                {
+                    Undo.RecordObject(_currentGraph, "Change Description");
+                }
+
                 selectedNode.Description = evt.newValue;
+
+                if (_currentGraph != null)
+                {
+                    EditorUtility.SetDirty(_currentGraph);
+                }
             });
             contentContainer.Add(descriptionField);
 
@@ -449,7 +529,19 @@ public class HapticsAnnotationWindow : EditorWindow
         // Register callback to update the node property when the text changes
         textField.RegisterValueChangedCallback(evt =>
         {
+            // Register undo operation
+            if (_currentGraph != null)
+            {
+                Undo.RecordObject(_currentGraph, $"Change {propertyName}");
+            }
+
             setter(evt.newValue);
+
+            // Mark the graph as dirty
+            if (_currentGraph != null)
+            {
+                EditorUtility.SetDirty(_currentGraph);
+            }
         });
 
         // Add the text field to the foldout
@@ -488,6 +580,12 @@ public class HapticsAnnotationWindow : EditorWindow
         // Register callback for slider value changes
         slider.RegisterValueChangedCallback(evt =>
         {
+            // Register undo operation
+            if (_currentGraph != null)
+            {
+                Undo.RecordObject(_currentGraph, $"Change {propertyName} Value");
+            }
+
             // Round to nearest 0.1
             float roundedValue = Mathf.Round(evt.newValue * 10) / 10f;
 
@@ -502,6 +600,12 @@ public class HapticsAnnotationWindow : EditorWindow
 
             // Update the node property
             sliderSetter(roundedValue);
+
+            // Mark the graph as dirty
+            if (_currentGraph != null)
+            {
+                EditorUtility.SetDirty(_currentGraph);
+            }
         });
 
         // Register callback for value field changes
@@ -1133,6 +1237,9 @@ public class HapticsAnnotationWindow : EditorWindow
 
         _currentGraph = graph;
 
+        // Set the current graph reference in the GraphView
+        _graphView.SetCurrentGraph(graph);
+
         // Clear the current graph
         _graphView.ClearGraph();
 
@@ -1153,11 +1260,17 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Update the window title to show the current graph
         titleContent = new GUIContent($"Haptic Annotation ({graph.name})", titleContent.image);
+
+        // Register for Undo events
+        Undo.undoRedoPerformed += OnUndoRedo;
     }
 
     public void SaveGraph()
     {
         if (_currentGraph == null) return;
+
+        // Register undo operation
+        Undo.RecordObject(_currentGraph, "Save Graph");
 
         // Save the graph summary
         _currentGraph.Summary = _graphSummary;
