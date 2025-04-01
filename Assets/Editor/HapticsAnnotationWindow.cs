@@ -1140,8 +1140,28 @@ public class HapticsAnnotationWindow : EditorWindow
             {
                 if (groupRecord.title == scope.title)
                 {
-                    // Add the snapshot path to the group record
+                    // Add the main snapshot path to the group record
                     groupRecord.arrangementSnapshotPath = $"Snapshot/{filename}";
+
+                    // Add additional angle paths if they exist
+                    groupRecord.additionalViewAngles = new List<string>();
+
+                    // Check for additional angle snapshots
+                    string baseFilePath = System.IO.Path.Combine(
+                        System.IO.Path.GetDirectoryName(fullPath),
+                        System.IO.Path.GetFileNameWithoutExtension(fullPath));
+                    string extension = System.IO.Path.GetExtension(fullPath);
+
+                    for (int angle = 0; angle < 3; angle++) // Check for 3 angles
+                    {
+                        string angleFilePath = $"{baseFilePath}_angle{angle}{extension}";
+                        if (System.IO.File.Exists(angleFilePath))
+                        {
+                            string relativeAnglePath = $"Snapshot/{System.IO.Path.GetFileName(angleFilePath)}";
+                            groupRecord.additionalViewAngles.Add(relativeAnglePath);
+                        }
+                    }
+
                     break;
                 }
             }
@@ -1163,7 +1183,7 @@ public class HapticsAnnotationWindow : EditorWindow
             "OK");
     }
 
-    // Method to capture a screenshot of a group arrangement with a high angle view
+    // Method to capture screenshots of a group arrangement from multiple angles
     private void CaptureGroupArrangement(HapticScope scope, string savePath)
     {
         // Get all nodes in the scope
@@ -1197,50 +1217,105 @@ public class HapticsAnnotationWindow : EditorWindow
             // Calculate the bounds of all objects in the group
             Bounds groupBounds = CalculateGroupBounds(nodesInGroup);
 
-            // Position the camera for a high angle shot (45 degrees from above)
-            // Calculate a position above and behind the center of the group
+            // ===== CONFIGURABLE PARAMETERS =====
+
+            // Shot angle from horizontal (in degrees)
+            // 90 = directly above, 45 = high angle shot, 30 = above shot, 0 = straight on
+            float shotAngle = 40f;
+
+            // Zoom factor - lower values = closer to objects (tighter framing)
+            // 1.0 = standard distance, 0.8 = closer, 1.5 = farther away
+            float zoomFactor = 0.9f;
+
+            // Whether to capture multiple angles (0?, 120?, 240? around the center)
+            bool captureMultipleAngles = true;
+
+            // Number of angles to capture if captureMultipleAngles is true
+            int numberOfAngles = 3;
+
+            // Whether to use orthographic projection (true) or perspective (false)
+            bool useOrthographic = false;
+
+            // ===== END CONFIGURABLE PARAMETERS =====
+
+            // Calculate base distance based on bounds size and zoom factor
+            float distance = groupBounds.size.magnitude * zoomFactor;
             Vector3 center = groupBounds.center;
-            float distance = groupBounds.size.magnitude * 1.5f;
 
-            // Position for a 45-degree high angle shot
-            Vector3 cameraPosition = center + new Vector3(0, distance * 0.7f, -distance * 0.7f);
-            sceneView.camera.transform.position = cameraPosition;
-
-            // Look at the center of the group
-            sceneView.camera.transform.LookAt(center);
+            // Convert shot angle to radians
+            float shotAngleRad = shotAngle * Mathf.Deg2Rad;
 
             // Set the scene view size to fit the group
-            sceneView.size = groupBounds.size.magnitude * 0.3f;
-            sceneView.orthographic = true;
+            sceneView.size = groupBounds.size.magnitude * 0.8f;
+            sceneView.orthographic = useOrthographic;
             sceneView.isRotationLocked = true; // Lock the view to prevent accidental changes
 
-            // Force the scene view to update
-            sceneView.Repaint();
+            // If capturing multiple angles
+            if (captureMultipleAngles)
+            {
+                // Calculate the base filename without extension
+                string baseFilePath = System.IO.Path.Combine(
+                    System.IO.Path.GetDirectoryName(savePath),
+                    System.IO.Path.GetFileNameWithoutExtension(savePath));
+                string extension = System.IO.Path.GetExtension(savePath);
 
-            // Wait for the scene view to update
-            EditorApplication.ExecuteMenuItem("Window/General/Scene");
-            System.Threading.Thread.Sleep(300); // Give a bit more time for the view to update
+                // Capture from multiple angles
+                for (int i = 0; i < numberOfAngles; i++)
+                {
+                    // Calculate the horizontal angle in radians
+                    float horizontalAngle = (360f / numberOfAngles * i) * Mathf.Deg2Rad;
 
-            // Capture the screenshot
-            RenderTexture rt = new RenderTexture(1024, 1024, 24);
-            sceneView.camera.targetTexture = rt;
-            RenderTexture.active = rt;
-            sceneView.camera.Render();
+                    // Calculate camera position using spherical coordinates
+                    float horizontalDistance = distance * Mathf.Cos(shotAngleRad);
+                    float verticalDistance = distance * Mathf.Sin(shotAngleRad);
 
-            // Read the pixels
-            Texture2D screenshot = new Texture2D(1024, 1024, TextureFormat.RGB24, false);
-            screenshot.ReadPixels(new Rect(0, 0, 1024, 1024), 0, 0);
-            screenshot.Apply();
+                    Vector3 cameraPosition = center + new Vector3(
+                        horizontalDistance * Mathf.Sin(horizontalAngle),
+                        verticalDistance,
+                        horizontalDistance * Mathf.Cos(horizontalAngle)
+                    );
 
-            // Save the screenshot
-            byte[] bytes = screenshot.EncodeToPNG();
-            System.IO.File.WriteAllBytes(savePath, bytes);
+                    // Position and orient the camera
+                    sceneView.camera.transform.position = cameraPosition;
+                    sceneView.camera.transform.LookAt(center);
 
-            // Clean up
-            RenderTexture.active = null;
-            sceneView.camera.targetTexture = null;
-            UnityEngine.Object.DestroyImmediate(screenshot);
-            UnityEngine.Object.DestroyImmediate(rt);
+                    // Force the scene view to update
+                    sceneView.Repaint();
+                    System.Threading.Thread.Sleep(300);
+
+                    // Create the filename for this angle
+                    string angleFilePath = $"{baseFilePath}_angle{i}{extension}";
+
+                    // Capture the screenshot
+                    CaptureScreenshot(sceneView, angleFilePath);
+
+                    // If this is the first angle, also save it as the main screenshot
+                    if (i == 0)
+                    {
+                        CaptureScreenshot(sceneView, savePath);
+                    }
+                }
+            }
+            else
+            {
+                // Calculate camera position for a single shot
+                // Position for the specified angle shot
+                float horizontalDistance = distance * Mathf.Cos(shotAngleRad);
+                float verticalDistance = distance * Mathf.Sin(shotAngleRad);
+
+                Vector3 cameraPosition = center + new Vector3(0, verticalDistance, -horizontalDistance);
+
+                // Position and orient the camera
+                sceneView.camera.transform.position = cameraPosition;
+                sceneView.camera.transform.LookAt(center);
+
+                // Force the scene view to update
+                sceneView.Repaint();
+                System.Threading.Thread.Sleep(300);
+
+                // Capture the screenshot
+                CaptureScreenshot(sceneView, savePath);
+            }
         }
         finally
         {
@@ -1255,6 +1330,31 @@ public class HapticsAnnotationWindow : EditorWindow
             sceneView.isRotationLocked = originalLockView;
             sceneView.Repaint();
         }
+    }
+
+    // Helper method to capture a screenshot from the current scene view
+    private void CaptureScreenshot(SceneView sceneView, string savePath)
+    {
+        // Capture the screenshot
+        RenderTexture rt = new RenderTexture(1024, 1024, 24);
+        sceneView.camera.targetTexture = rt;
+        RenderTexture.active = rt;
+        sceneView.camera.Render();
+
+        // Read the pixels
+        Texture2D screenshot = new Texture2D(1024, 1024, TextureFormat.RGB24, false);
+        screenshot.ReadPixels(new Rect(0, 0, 1024, 1024), 0, 0);
+        screenshot.Apply();
+
+        // Save the screenshot
+        byte[] bytes = screenshot.EncodeToPNG();
+        System.IO.File.WriteAllBytes(savePath, bytes);
+
+        // Clean up
+        RenderTexture.active = null;
+        sceneView.camera.targetTexture = null;
+        UnityEngine.Object.DestroyImmediate(screenshot);
+        UnityEngine.Object.DestroyImmediate(rt);
     }
 
     // Helper method to hide all objects except those in the group
