@@ -1111,6 +1111,42 @@ public class HapticsAnnotationWindow : EditorWindow
             }
         }
 
+        // Export snapshots for each group
+        var scopes = _graphView.GetScopes();
+        for (int i = 0; i < scopes.Count; i++)
+        {
+            var scope = scopes[i];
+
+            // Skip empty groups
+            var nodesInGroup = scope.containedElements.OfType<HapticNode>().ToList();
+            if (nodesInGroup.Count == 0)
+                continue;
+
+            // Generate a unique filename for the group snapshot
+            string groupName = !string.IsNullOrEmpty(scope.title) ? scope.title : $"Group_{i + 1}";
+            string safeGroupName = System.Text.RegularExpressions.Regex.Replace(
+                groupName,
+                @"[^\w\.-]",
+                "_");
+            string timestamp = System.DateTime.Now.ToString("yyyyMMdd_HHmmss");
+            string filename = $"{safeGroupName}_Arrangement_{timestamp}.png";
+            string fullPath = System.IO.Path.Combine(snapshotDir, filename);
+
+            // Take a screenshot of the group arrangement
+            CaptureGroupArrangement(scope, fullPath);
+
+            // Find the corresponding group in the export data
+            foreach (var groupRecord in exportData.groups)
+            {
+                if (groupRecord.title == scope.title)
+                {
+                    // Add the snapshot path to the group record
+                    groupRecord.arrangementSnapshotPath = $"Snapshot/{filename}";
+                    break;
+                }
+            }
+        }
+
         // Serialize to JSON
         string jsonResult = JsonUtility.ToJson(exportData, true);
         string jsonPath = System.IO.Path.Combine(snapshotDir, $"haptic_annotation_{System.DateTime.Now.ToString("yyyyMMdd_HHmmss")}.json");
@@ -1123,8 +1159,197 @@ public class HapticsAnnotationWindow : EditorWindow
 
         // Show a success message
         EditorUtility.DisplayDialog("Export Complete",
-            $"Successfully exported {nodes.Count} node snapshots and annotation data to {snapshotDir} folder.",
+            $"Successfully exported {nodes.Count} node snapshots, {scopes.Count} group arrangements, and annotation data to {snapshotDir} folder.",
             "OK");
+    }
+
+    // Method to capture a screenshot of a group arrangement with a high angle view
+    private void CaptureGroupArrangement(HapticScope scope, string savePath)
+    {
+        // Get all nodes in the scope
+        var nodesInGroup = scope.containedElements.OfType<HapticNode>().ToList();
+        if (nodesInGroup.Count == 0)
+            return;
+
+        // Get the SceneView to capture the arrangement
+        SceneView sceneView = SceneView.lastActiveSceneView;
+        if (sceneView == null)
+        {
+            Debug.LogWarning("No active SceneView found for capturing group arrangement.");
+            return;
+        }
+
+        // Store the original camera settings
+        Vector3 originalPosition = sceneView.camera.transform.position;
+        Quaternion originalRotation = sceneView.camera.transform.rotation;
+        float originalSize = sceneView.size;
+        bool originalOrthographic = sceneView.orthographic;
+        bool originalLockView = sceneView.isRotationLocked;
+
+        // Store original object visibility states
+        Dictionary<GameObject, bool> originalVisibility = new Dictionary<GameObject, bool>();
+
+        try
+        {
+            // Temporarily hide all objects except those in the group
+            HideObjectsNotInGroup(nodesInGroup, originalVisibility);
+
+            // Calculate the bounds of all objects in the group
+            Bounds groupBounds = CalculateGroupBounds(nodesInGroup);
+
+            // Position the camera for a high angle shot (45 degrees from above)
+            // Calculate a position above and behind the center of the group
+            Vector3 center = groupBounds.center;
+            float distance = groupBounds.size.magnitude * 1.5f;
+
+            // Position for a 45-degree high angle shot
+            Vector3 cameraPosition = center + new Vector3(0, distance * 0.7f, -distance * 0.7f);
+            sceneView.camera.transform.position = cameraPosition;
+
+            // Look at the center of the group
+            sceneView.camera.transform.LookAt(center);
+
+            // Set the scene view size to fit the group
+            sceneView.size = groupBounds.size.magnitude * 0.3f;
+            sceneView.orthographic = true;
+            sceneView.isRotationLocked = true; // Lock the view to prevent accidental changes
+
+            // Force the scene view to update
+            sceneView.Repaint();
+
+            // Wait for the scene view to update
+            EditorApplication.ExecuteMenuItem("Window/General/Scene");
+            System.Threading.Thread.Sleep(300); // Give a bit more time for the view to update
+
+            // Capture the screenshot
+            RenderTexture rt = new RenderTexture(1024, 1024, 24);
+            sceneView.camera.targetTexture = rt;
+            RenderTexture.active = rt;
+            sceneView.camera.Render();
+
+            // Read the pixels
+            Texture2D screenshot = new Texture2D(1024, 1024, TextureFormat.RGB24, false);
+            screenshot.ReadPixels(new Rect(0, 0, 1024, 1024), 0, 0);
+            screenshot.Apply();
+
+            // Save the screenshot
+            byte[] bytes = screenshot.EncodeToPNG();
+            System.IO.File.WriteAllBytes(savePath, bytes);
+
+            // Clean up
+            RenderTexture.active = null;
+            sceneView.camera.targetTexture = null;
+            UnityEngine.Object.DestroyImmediate(screenshot);
+            UnityEngine.Object.DestroyImmediate(rt);
+        }
+        finally
+        {
+            // Restore original object visibility
+            RestoreObjectVisibility(originalVisibility);
+
+            // Restore the original camera settings
+            sceneView.camera.transform.position = originalPosition;
+            sceneView.camera.transform.rotation = originalRotation;
+            sceneView.size = originalSize;
+            sceneView.orthographic = originalOrthographic;
+            sceneView.isRotationLocked = originalLockView;
+            sceneView.Repaint();
+        }
+    }
+
+    // Helper method to hide all objects except those in the group
+    private void HideObjectsNotInGroup(List<HapticNode> nodesInGroup, Dictionary<GameObject, bool> originalVisibility)
+    {
+        // Get all GameObjects in the scene
+        GameObject[] allObjects = UnityEngine.Object.FindObjectsOfType<GameObject>();
+
+        // Create a list of GameObjects that are in the group
+        List<GameObject> groupObjects = new List<GameObject>();
+        foreach (var node in nodesInGroup)
+        {
+            if (node.AssociatedObject != null)
+            {
+                groupObjects.Add(node.AssociatedObject);
+
+                // Also add all children
+                foreach (Transform child in node.AssociatedObject.GetComponentsInChildren<Transform>())
+                {
+                    if (child.gameObject != node.AssociatedObject)
+                    {
+                        groupObjects.Add(child.gameObject);
+                    }
+                }
+            }
+        }
+
+        // Hide all objects that are not in the group
+        foreach (var obj in allObjects)
+        {
+            // Skip objects that are not visible in the hierarchy
+            if (!obj.activeInHierarchy)
+                continue;
+
+            // Store the original visibility state
+            originalVisibility[obj] = obj.activeSelf;
+
+            // If the object is not in the group, hide it
+            if (!groupObjects.Contains(obj))
+            {
+                obj.SetActive(false);
+            }
+        }
+    }
+
+    // Helper method to restore original object visibility
+    private void RestoreObjectVisibility(Dictionary<GameObject, bool> originalVisibility)
+    {
+        foreach (var kvp in originalVisibility)
+        {
+            if (kvp.Key != null) // Check if the GameObject still exists
+            {
+                kvp.Key.SetActive(kvp.Value);
+            }
+        }
+    }
+
+    // Helper method to calculate the bounds of a group of nodes
+    private Bounds CalculateGroupBounds(List<HapticNode> nodes)
+    {
+        if (nodes.Count == 0)
+            return new Bounds(Vector3.zero, Vector3.zero);
+
+        // Initialize bounds with the first node
+        Bounds bounds = new Bounds(nodes[0].AssociatedObject.transform.position, Vector3.zero);
+
+        // Expand bounds to include all nodes
+        foreach (var node in nodes)
+        {
+            if (node.AssociatedObject != null)
+            {
+                // Include the renderer bounds if available
+                Renderer renderer = node.AssociatedObject.GetComponent<Renderer>();
+                if (renderer != null)
+                {
+                    bounds.Encapsulate(renderer.bounds);
+                }
+                else
+                {
+                    // Just use the transform position if no renderer
+                    bounds.Encapsulate(node.AssociatedObject.transform.position);
+                }
+
+                // Include all child renderers
+                foreach (Renderer childRenderer in node.AssociatedObject.GetComponentsInChildren<Renderer>())
+                {
+                    bounds.Encapsulate(childRenderer.bounds);
+                }
+            }
+        }
+
+        // Add some padding
+        bounds.Expand(bounds.size.magnitude * 0.1f);
+
+        return bounds;
     }
 
     public void LoadGraph(HapticAnnotationGraph graph)

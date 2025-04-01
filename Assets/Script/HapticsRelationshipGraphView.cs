@@ -669,6 +669,7 @@ public class GroupRecord
     public string title;
     public List<string> objectNames;
     public List<ObjectVectorRecord> objectVectors;
+    public string arrangementSnapshotPath; // Path to the group arrangement snapshot
 }
 
 [System.Serializable]
