@@ -273,6 +273,7 @@ public class HapticsRelationshipGraphView : GraphView
         var data = new HapticAnnotationData();
         data.nodeAnnotations = new List<HapticObjectRecord>();
         data.relationshipAnnotations = new List<HapticConnectionRecord>();
+        data.groups = new List<GroupRecord>(); 
 
         foreach (var hNode in _nodes)
         {
@@ -339,6 +340,64 @@ public class HapticsRelationshipGraphView : GraphView
                     });
                 }
             }
+        }
+
+        // Process all groups (scopes) in the graph
+        var scopes = GetScopes();
+        foreach (var scope in scopes)
+        {
+            // Create a new group record
+            var groupRecord = new GroupRecord
+            {
+                title = scope.title,
+                objectNames = new List<string>(),
+                objectVectors = new List<ObjectVectorRecord>()
+            };
+
+            // Get all HapticNodes in this scope
+            var nodesInScope = scope.containedElements.OfType<HapticNode>().ToList();
+
+            // Add all object names to the group
+            foreach (var node in nodesInScope)
+            {
+                if (node.AssociatedObject != null)
+                {
+                    groupRecord.objectNames.Add(node.AssociatedObject.name);
+                }
+            }
+
+            // Calculate vectors between each pair of objects in the group
+            for (int i = 0; i < nodesInScope.Count; i++)
+            {
+                for (int j = i + 1; j < nodesInScope.Count; j++)
+                {
+                    var nodeA = nodesInScope[i];
+                    var nodeB = nodesInScope[j];
+
+                    if (nodeA.AssociatedObject != null && nodeB.AssociatedObject != null)
+                    {
+                        // Calculate the vector between the two objects
+                        Vector3 vectorAB = nodeB.AssociatedObject.transform.position - nodeA.AssociatedObject.transform.position;
+
+                        // Add the vector record
+                        groupRecord.objectVectors.Add(new ObjectVectorRecord
+                        {
+                            objectA = nodeA.AssociatedObject.name,
+                            objectB = nodeB.AssociatedObject.name,
+                            vector = new SerializableVector3
+                            {
+                                x = vectorAB.x,
+                                y = vectorAB.y,
+                                z = vectorAB.z
+                            },
+                            distance = vectorAB.magnitude
+                        });
+                    }
+                }
+            }
+
+            // Add the group record to the data
+            data.groups.Add(groupRecord);
         }
 
         return data;
@@ -567,6 +626,7 @@ public class HapticAnnotationData
     public string summary;
     public List<HapticObjectRecord> nodeAnnotations;
     public List<HapticConnectionRecord> relationshipAnnotations;
+    public List<GroupRecord> groups;
 }
 
 [System.Serializable]
@@ -601,6 +661,31 @@ public class HapticConnectionRecord
     public string directContactObject;
     public string toolMediatedObject;
     public string annotationText;
+}
+
+[System.Serializable]
+public class GroupRecord
+{
+    public string title;
+    public List<string> objectNames;
+    public List<ObjectVectorRecord> objectVectors;
+}
+
+[System.Serializable]
+public class ObjectVectorRecord
+{
+    public string objectA;
+    public string objectB;
+    public SerializableVector3 vector;
+    public float distance;
+}
+
+[System.Serializable]
+public class SerializableVector3
+{
+    public float x;
+    public float y;
+    public float z;
 }
 
 // Example node class: represents one VR object in the graph
