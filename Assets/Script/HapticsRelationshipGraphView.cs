@@ -553,7 +553,11 @@ public class HapticsRelationshipGraphView : GraphView
 
     }
 
-
+    public void NotifyGraphChanged()
+    {
+        // This method can be called from outside to trigger the OnGraphChanged event
+        OnGraphChanged?.Invoke();
+    }
 }
 
 // Minimal data structure to hold annotation data
@@ -1237,14 +1241,43 @@ public class HapticRelationshipEdge : Edge
 
 public class HapticScope : Group
 {
-    public Color ScopeColor { get; set; } = new Color(0.3f, 0.3f, 0.3f, 0.3f);
+    private Color _scopeColor = new Color(0.3f, 0.3f, 0.3f, 0.3f);
+
+    public Color ScopeColor
+    {
+        get => _scopeColor;
+        set
+        {
+            _scopeColor = value;
+            ApplyColorToStyle();
+        }
+    }
 
     public HapticScope()
     {
-        // Existing initialization code...
-
         // Add a context menu manipulator specifically for this group
         this.AddManipulator(new ContextualMenuManipulator(BuildContextualMenu));
+
+        // Apply the initial color
+        ApplyColorToStyle();
+
+        // Register for when the element is attached to a panel (becomes visible)
+        RegisterCallback<AttachToPanelEvent>(OnAttachToPanel);
+    }
+
+    private void OnAttachToPanel(AttachToPanelEvent evt)
+    {
+        // Ensure the color is applied when the element is added to the UI
+        ApplyColorToStyle();
+    }
+
+    private void ApplyColorToStyle()
+    {
+        // Apply the color to the style
+        if (style != null)
+        {
+            style.backgroundColor = _scopeColor;
+        }
     }
 
     private void BuildContextualMenu(ContextualMenuPopulateEvent evt)
@@ -1274,29 +1307,39 @@ public class HapticScope : Group
         // Color options
         evt.menu.AppendAction("Set Color/Blue", (a) => {
             ScopeColor = new Color(0.2f, 0.3f, 0.4f, 0.3f);
-            this.style.backgroundColor = ScopeColor;
+            NotifyGraphChanged();
         });
 
         evt.menu.AppendAction("Set Color/Green", (a) => {
             ScopeColor = new Color(0.2f, 0.4f, 0.2f, 0.3f);
-            this.style.backgroundColor = ScopeColor;
+            NotifyGraphChanged();
         });
 
         evt.menu.AppendAction("Set Color/Red", (a) => {
             ScopeColor = new Color(0.4f, 0.2f, 0.2f, 0.3f);
-            this.style.backgroundColor = ScopeColor;
+            NotifyGraphChanged();
         });
 
         evt.menu.AppendAction("Set Color/Purple", (a) => {
             ScopeColor = new Color(0.4f, 0.2f, 0.4f, 0.3f);
-            this.style.backgroundColor = ScopeColor;
+            NotifyGraphChanged();
         });
 
         evt.menu.AppendAction("Set Color/Orange", (a) => {
             ScopeColor = new Color(0.5f, 0.3f, 0.1f, 0.3f);
-            this.style.backgroundColor = ScopeColor;
+            NotifyGraphChanged();
         });
     }
 
-    // Rest of your existing HapticScope code...
+    // Helper method to notify the graph that a change has occurred
+    private void NotifyGraphChanged()
+    {
+        // Find the parent graph view
+        var graphView = GetFirstAncestorOfType<HapticsRelationshipGraphView>();
+        if (graphView != null)
+        {
+            // Call a public method on the graph view to notify of changes
+            graphView.NotifyGraphChanged();
+        }
+    }
 }
