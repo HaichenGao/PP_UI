@@ -17,3 +17,4 @@ Assets/Unity.VisualScripting.Generated/
 *.csproj
 *.sln
 *.meta
+Assets/Script_py/.env
